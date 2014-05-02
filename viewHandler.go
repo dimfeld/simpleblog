@@ -1,8 +1,10 @@
 package main
 
 import (
+	"compress/gzip"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -16,16 +18,15 @@ func error404(w http.ResponseWriter, r *http.Request, path string) {
 	return
 }
 
+func canCompress(r *http.Request) bool {
+	encodings := r.Header.Get("Accept-Encoding")
+	return strings.Contains(encodings, "gzip")
+}
+
 func viewHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path[1:]
 
-	secure := secureFilename(path)
-	if !secure {
-		error404(w, r, path)
-		return
-	}
-
-	filename := mapFilename(path)
+	filename, useCache := mapFilename(path)
 
 	err = sendFile(filename)
 	if err != nil {
@@ -34,19 +35,11 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func secureFilename(path string) bool {
-	if strings.Contains(path, "..") {
-		return false
-	}
-
-	// What else here? There must be some standard library for this.
-
-	return true
-}
-
 // mapFilename takes the user-supplied path and figures out what to actually look up.
-func mapFilename(path string) string {
+func mapFilename(path string) (filename string, useCache bool) {
 	// Ugh, this whole thing is a harcoded mess. But it's simple...
+
+	useCache = true
 
 	// Root path
 	if len(path) == 0 {
@@ -87,14 +80,14 @@ func exists(path string) bool {
 // sendFile returns a file to the user, generating it into the cache if needed.
 func sendFile(w http.ResponseWriter, r *http.Request, filename string) Error {
 	// Check the cache.
-	cachedPath = findCachedFile(filename)
+	cachedPath = findCachedPath(r, filename)
 	if cachedPath != nil {
 		http.ServeFile(w, r, cachedPath)
 		return
 	}
 
 	// If it's not in the cache, see if it can be generated
-	cachedPath, err = generateCachedFile(filename)
+	cachedPath, err = generateCachedFile(r, filename)
 	if err != nil {
 		return err
 	}
@@ -103,8 +96,14 @@ func sendFile(w http.ResponseWriter, r *http.Request, filename string) Error {
 }
 
 // findCachedPath returns the full path for passing into ServeFile, if the file is cached.
-func findCachedPath(path string) string {
+func findCachedPath(r *http.Request, path string) string {
 	cachePath = "cache/" + path
+	if canCompress(r) {
+		gzippedCache = cachePath + ".gz"
+		if exists(gzippedCache) {
+			return gzippedCache
+		}
+	}
 	if exists(cachePath) {
 		return cachePath
 	}
@@ -112,6 +111,37 @@ func findCachedPath(path string) string {
 }
 
 // generateCachedFile creates HTML output for the user's request and places the file into the cache.
-func generateCachedFile(filename string) (string, Error) {
-	return nil, ""
+func generateCachedFile(r *http.Request, path string) (string, Error) {
+	path = "cache/" + path
+	dirPath := path.Split(path)
+	err := os.MkdirAll(dirPath, 0700)
+	if err != nil {
+		return nil, err
+	}
+
+	// Do the templating
+	//data := runTemplate(some parameters here)
+	data = ""
+
+	file, err := os.Create(path)
+	defer file.Close()
+	if err != nil {
+		return nil, err
+	}
+	file.Write(data)
+
+	err = generateGzipCache(path+".gz", data)
+	return path, err
+}
+
+func generateGzipCache(path string, byte []data) Error {
+	file, err := os.Create(path)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+
+	gz := gzip.NewWriterLevel(file, gzip.BestCompression)
+	_, err = gz.Write(data)
+	return err
 }
