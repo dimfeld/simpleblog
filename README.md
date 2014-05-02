@@ -1,4 +1,4 @@
-simple-blog
+simpleblog
 ===========
 
 A very simple blog engine I'm writing to learn Go.
