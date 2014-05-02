@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/howeyc/fsnotify"
+	"os"
+	"path/filepath"
 )
 
 // initFsWatcher sets up the paths to watch.
@@ -19,5 +21,17 @@ func purgeVarnish(path string) error {
 }
 
 func purgeCache(path string) error {
+	path = "cache/" + path
+	matches, err := filepath.Glob(path)
 
+	if err != nil {
+		return
+	}
+
+	for file := range matches {
+		err = os.RemoveAll(file)
+		if err {
+			// Syslog removal failure
+		}
+	}
 }

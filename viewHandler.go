@@ -20,7 +20,8 @@ func error404(w http.ResponseWriter, r *http.Request, path string) {
 
 func canCompress(r *http.Request) bool {
 	encodings := r.Header.Get("Accept-Encoding")
-	return strings.Contains(encodings, "gzip")
+	_, contentRange = r.Header["Content-Range"]
+	return !contentRange && strings.Contains(encodings, "gzip")
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +92,8 @@ func sendFile(w http.ResponseWriter, r *http.Request, filename string) Error {
 	if err != nil {
 		return err
 	}
+
+	w.Header.Add("Vary", "Accept-Encoding")
 
 	http.ServeFile(w, r, cachedPath)
 }
