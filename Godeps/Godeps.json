@@ -1,0 +1,11 @@
+{
+	"ImportPath": "github.com/dimfeld/simpleblog",
+	"GoVersion": "go1.2.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/howeyc/fsnotify",
+			"Comment": "v0.9.0",
+			"Rev": "441bbc86b167f3c1f4786afae9931403b99fdacf"
+		}
+	]
+}
