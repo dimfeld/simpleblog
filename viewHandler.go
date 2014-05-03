@@ -10,7 +10,7 @@ import (
 
 func error404(w http.ResponseWriter, r *http.Request, path string) {
 	w.WriteHeader(http.StatusNotFound)
-	err = sendFile(w, r, "errorPages/404.html")
+	err := sendFile(w, r, "errorPages/404.html")
 	if err != nil {
 		// Ouch, couldn't find our 404 page.
 		http.NotFound(w, r)
@@ -20,16 +20,16 @@ func error404(w http.ResponseWriter, r *http.Request, path string) {
 
 func canCompress(r *http.Request) bool {
 	encodings := r.Header.Get("Accept-Encoding")
-	_, contentRange = r.Header["Content-Range"]
+	_, contentRange := r.Header["Content-Range"]
 	return !contentRange && strings.Contains(encodings, "gzip")
 }
 
-func viewHandler(w http.ResponseWriter, r *http.Request) {
+func viewHandler(globalData *GlobalData, w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path[1:]
 
-	filename, useCache := mapFilename(path)
+	filename := mapFilename(path)
 
-	err = sendFile(filename)
+	err := sendFile(w, r, filename)
 	if err != nil {
 		error404(w, r, path)
 		return
@@ -37,10 +37,8 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // mapFilename takes the user-supplied path and figures out what to actually look up.
-func mapFilename(path string) (filename string, useCache bool) {
-	// Ugh, this whole thing is a harcoded mess. But it's simple...
-
-	useCache = true
+func mapFilename(path string) (filename string) {
+	// Ugh, this whole thing is a harcoded mess. Replace with a real router.
 
 	// Root path
 	if len(path) == 0 {
@@ -63,7 +61,7 @@ func mapFilename(path string) (filename string, useCache bool) {
 
 	pathLen := len(path)
 	if pathLen == 7 || pathLen == 8 {
-		archivePath = "archives/" + path[0:5] + "-" + path[6:8]
+		archivePath := "archives/" + path[0:5] + "-" + path[6:8]
 		if exists(archivePath) {
 			return archivePath
 		}
@@ -74,35 +72,36 @@ func mapFilename(path string) (filename string, useCache bool) {
 }
 
 func exists(path string) bool {
-	_, err = os.Stat(path)
+	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
 }
 
 // sendFile returns a file to the user, generating it into the cache if needed.
-func sendFile(w http.ResponseWriter, r *http.Request, filename string) Error {
+func sendFile(w http.ResponseWriter, r *http.Request, filename string) error {
 	// Check the cache.
-	cachedPath = findCachedPath(r, filename)
-	if cachedPath != nil {
+	cachedPath := findCachedPath(r, filename)
+	if len(cachedPath) != 0 {
 		http.ServeFile(w, r, cachedPath)
-		return
+		return nil
 	}
 
 	// If it's not in the cache, see if it can be generated
-	cachedPath, err = generateCachedFile(r, filename)
+	cachedPath, err := generateCachedFile(r, filename)
 	if err != nil {
 		return err
 	}
 
-	w.Header.Add("Vary", "Accept-Encoding")
+	w.Header().Add("Vary", "Accept-Encoding")
 
 	http.ServeFile(w, r, cachedPath)
+	return nil
 }
 
 // findCachedPath returns the full path for passing into ServeFile, if the file is cached.
 func findCachedPath(r *http.Request, path string) string {
-	cachePath = "cache/" + path
+	cachePath := "cache/" + path
 	if canCompress(r) {
-		gzippedCache = cachePath + ".gz"
+		gzippedCache := cachePath + ".gz"
 		if exists(gzippedCache) {
 			return gzippedCache
 		}
@@ -110,41 +109,44 @@ func findCachedPath(r *http.Request, path string) string {
 	if exists(cachePath) {
 		return cachePath
 	}
-	return nil
+	return ""
 }
 
 // generateCachedFile creates HTML output for the user's request and places the file into the cache.
-func generateCachedFile(r *http.Request, path string) (string, Error) {
-	path = "cache/" + path
-	dirPath := path.Split(path)
+func generateCachedFile(r *http.Request, pathStr string) (string, error) {
+	pathStr = "cache/" + pathStr
+	dirPath, _ := path.Split(pathStr)
 	err := os.MkdirAll(dirPath, 0700)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Do the templating
 	//data := runTemplate(some parameters here)
-	data = ""
+	data := []byte("")
 
-	file, err := os.Create(path)
+	file, err := os.Create(pathStr)
 	defer file.Close()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	file.Write(data)
 
-	err = generateGzipCache(path+".gz", data)
-	return path, err
+	err = generateGzipCache(pathStr+".gz", data)
+	return pathStr, err
 }
 
-func generateGzipCache(path string, byte []data) Error {
+func generateGzipCache(path string, data []byte) error {
 	file, err := os.Create(path)
 	defer file.Close()
 	if err != nil {
 		return err
 	}
 
-	gz := gzip.NewWriterLevel(file, gzip.BestCompression)
+	gz, err := gzip.NewWriterLevel(file, gzip.BestCompression)
+	if err != nil {
+		return err
+	}
 	_, err = gz.Write(data)
 	return err
 }
