@@ -7,14 +7,36 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type Post struct {
 	SourcePath string
 	Title      string
+	UrlTitle   string
 	Timestamp  time.Time
 	Tags       []string
 	Content    []byte
+}
+
+func urlTitleMap(r rune) rune {
+	switch {
+	case unicode.IsLetter(r):
+		return unicode.ToLower(r)
+
+	case unicode.IsDigit(r):
+		return r
+
+	case unicode.IsSpace(r):
+		return '-'
+
+	default:
+		return -1
+	}
+}
+
+func MakeUrlTitle(s string) string {
+	return strings.Map(urlTitleMap, s)
 }
 
 // NewPost reads a post from disk and returns a Post containing its data.
@@ -41,6 +63,7 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 		return
 	}
 	p.Title = string(line[0 : len(line)-1])
+	p.UrlTitle = MakeUrlTitle(p.Title)
 
 	line, err = reader.ReadString('\n')
 	if err != nil {
