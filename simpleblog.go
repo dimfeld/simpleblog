@@ -45,7 +45,7 @@ func main() {
 	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
 	router.GET("/images/*file", handlerWrapper(simpleHandler, globalData))
 	router.GET("/assets/*file", handlerWrapper(staticCompressHandler, globalData))
-	router.GET("/favicon.ico", handlerWrapper(simpleHandler, globalData))
+	router.GET("/favicon.ico", handlerWrapper(staticCompressHandler, globalData))
 
 	http.ListenAndServe(":8080", router)
 }
