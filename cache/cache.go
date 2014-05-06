@@ -27,7 +27,7 @@ type Cache interface {
 }
 
 // Helper function for adding things to a Cache.
-// It would be nice to have this as as member of Cache, but I need to figure out how to do that in Go.
+// It would be nice to have this as a member of Cache, but I need to figure out how to do that in Go.
 func CompressAndSet(cache Cache, path string, data []byte, modTime time.Time) (uncompressed Object, compressed Object, err error) {
 
 	compressedPath := path
