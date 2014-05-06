@@ -20,6 +20,8 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	error404(w, r)
 }
 
+// determineCompression figures out if compression can be used, and adds a .gz extension so that
+// we get the compressed version of the file instead.
 func determineCompression(w http.ResponseWriter, r *http.Request, path string) (outPath string) {
 	if _, ok := r.Header["Range"]; ok {
 		// No compression if the user passed a range request, since returning a slice of the
@@ -98,15 +100,16 @@ func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
-	filePath := determineCompression(w, r, "index.html")
-	data, err := globalData.cache.Get(filePath, PageSpec{generateIndexPage, urlParams})
+	filename := "index.html"
+	filePath := determineCompression(w, r, filename)
 
+	data, err := globalData.cache.Get(filePath, PageSpec{generateIndexPage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 
-	sendData(w, r, "index.html", data)
+	sendData(w, r, filename, data)
 }
 
 func exists(path string) bool {

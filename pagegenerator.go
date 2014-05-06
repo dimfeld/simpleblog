@@ -48,3 +48,7 @@ func generateIndexPage(params map[string]string) ([]byte, error) {
 func generateSinglePost(path string) ([]byte, error) {
 	return nil, nil
 }
+
+func filesSortedByDate(directory string, ascending bool) ([]string, error) {
+	return nil, nil
+}
