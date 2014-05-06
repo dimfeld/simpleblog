@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"github.com/dimfeld/simpleblog/cache"
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -17,11 +17,21 @@ func error404(w http.ResponseWriter, r *http.Request, path string) {
 }
 
 func determineCompression(w http.ResponseWriter, r *http.Request, path string) (outPath string) {
-	encodings := r.Header.Get("Accept-Encoding")
+	if _, ok := r.Header["Range"]; ok {
+		// No compression if the user passed a range request, since returning a slice of the
+		// compressed version from the cache would then return invalid data.
+		return path
+	}
+
+	encodings := r.Header["Accept-Encoding"]
 	outPath = path
-	if strings.Contains(encodings, "gzip") {
-		outPath = path + ".gz"
-		w.Header().Set("Content-Encoding", "gzip")
+	for index := range encodings {
+		if strings.Contains(encodings[index], "gzip") {
+			// Use the gzipped version.
+			outPath = path + ".gz"
+			w.Header().Set("Content-Encoding", "gzip")
+			break
+		}
 	}
 
 	return outPath
@@ -39,7 +49,7 @@ func postHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, data)
+	sendData(w, r, urlParams["post"]+".html", data)
 }
 
 func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
@@ -78,51 +88,44 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join("assets", urlParams["file"])
 	filePath = determineCompression(w, r, filePath)
 
-	w.Header().Set("Expires", time.Now().AddDate(1, 0, 0).String())
-	// One year in seconds
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	makeStaticAssetHeaders(w)
 
 	object, err := globalData.cache.Get(filePath, DirectCacheFiller{})
 	if err != nil {
 		// TODO 404 error
 	}
 
-	sendData(w, r, object)
+	sendData(w, r, urlParams["file"], object)
+}
+
+func simpleHandler(globalData *GlobalData, w http.ResponseWriter,
+	r *http.Request, urlParams map[string]string) {
+	path := "content" + r.URL.Path
+	makeStaticAssetHeaders(w)
+	http.ServeFile(w, r, path)
+}
+
+func makeStaticAssetHeaders(w http.ResponseWriter) {
+	w.Header().Set("Expires", time.Now().AddDate(1, 0, 0).String())
+	// One year in seconds
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
 }
 
 // sendData returns a file to the user, handling relevant headers in the request and response.
-func sendData(w http.ResponseWriter, r *http.Request, object cache.Object) error {
+func sendData(w http.ResponseWriter, r *http.Request, name string, object cache.Object) {
 	header := w.Header()
 	header.Add("Vary", "Accept-Encoding")
 	modTime := object.ModTime
 	// 30 days in seconds
 	if _, ok := header["Cache-Control"]; !ok {
-		header.Add("Cache-Control", "public, max-age=2592000")
+		header.Set("Cache-Control", "public, max-age=2592000")
 	}
 	if _, ok := header["Expires"]; !ok {
 		header.Set("Expires", time.Now().AddDate(0, 1, 0).String())
 	}
 
-	writeData := true
-	if !modTime.IsZero() {
-		header.Set("Last-Modified", modTime.String())
-
-		if modifiedSinceStr := r.Header.Get("If-Modified-Since"); modifiedSinceStr != "" {
-			sinceTime, err := http.ParseTime(modifiedSinceStr)
-			if err == nil && sinceTime.After(modTime) {
-				writeData = false
-			}
-		}
-	}
-
-	if writeData {
-		header.Set("Content-Length", strconv.Itoa(len(object.Data)))
-		w.Write(object.Data)
-	} else {
-		w.WriteHeader(http.StatusNotModified)
-	}
-
-	return nil
+	reader := bytes.NewReader(object.Data)
+	http.ServeContent(w, r, name, modTime, reader)
 }
 
 type DirectCacheFiller struct {

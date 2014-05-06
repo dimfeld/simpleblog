@@ -104,7 +104,7 @@ func (m *memoryCache) trim() {
 // NewmemoryCache creates a new cache.
 // 	memoryLimit is roughly the maximum amount of memory that will be used.
 //  nextLevel is an optional interface allowing write-through behavior.
-func NewMemoryCache(memoryLimit int, backing Filler, nextLevel Cache) Cache {
+func NewMemoryCache(memoryLimit int, nextLevel Cache) Cache {
 	return &memoryCache{memoryLimit: memoryLimit,
 		objectLimit: memoryLimit / 4,
 		object:      make(map[string]Object),

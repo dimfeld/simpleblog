@@ -57,3 +57,7 @@ func (d *DiskCache) Get(path string, filler Filler) (Object, error) {
 	// TODO Get data, modtime
 	return obj, err
 }
+
+func NewDiskCache(baseDir string) Cache {
+	return &DiskCache{baseDir}
+}
