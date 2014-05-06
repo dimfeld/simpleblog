@@ -19,6 +19,12 @@ type Post struct {
 
 // NewPost reads a post from disk and returns a Post containing its data.
 // If readContent is false, only the header of the post is read.
+// The post format is:
+// Title
+// Date/Time
+// Tags
+//
+// Markdown Content
 func NewPost(filePath string, readContent bool) (p *Post, err error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -26,8 +32,7 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 	}
 	defer f.Close()
 
-	p = new(Post)
-	p.SourcePath = filePath
+	p = &Post{SourcePath: filePath}
 
 	reader := bufio.NewReader(f)
 
