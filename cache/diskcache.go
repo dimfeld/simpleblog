@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -47,14 +48,26 @@ func (d *DiskCache) Del(pathStr string) {
 	}
 }
 
-func (d *DiskCache) Get(path string, filler Filler) (Object, error) {
-	// TODO Read from the cache.
-	obj, err := filler.Fill(d, path)
+func (d *DiskCache) Get(filename string, filler Filler) (Object, error) {
+	cachePath := d.baseDir + filename
+	f, err := os.Open(cachePath)
 	if err != nil {
-		return obj, err
+		// The object is not currently present in the disk cache. Try to generate it.
+		return filler.Fill(d, filename)
 	}
 
-	// TODO Get data, modtime
+	defer f.Close()
+
+	fstat, err := f.Stat()
+	if err != nil {
+		return Object{}, err
+	}
+	modTime := fstat.ModTime()
+
+	buf := bytes.Buffer{}
+	_, err = buf.ReadFrom(f)
+	obj := Object{buf.Bytes(), modTime}
+
 	return obj, err
 }
 
