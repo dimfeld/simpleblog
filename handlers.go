@@ -10,10 +10,14 @@ import (
 	"time"
 )
 
-func error404(w http.ResponseWriter, r *http.Request, path string) {
+func error404(w http.ResponseWriter, r *http.Request) {
 	// TODO Real error page here.
 	http.NotFound(w, r)
 	return
+}
+
+func handleError(w http.ResponseWriter, r *http.Request, err error) {
+	error404(w, r)
 }
 
 func determineCompression(w http.ResponseWriter, r *http.Request, path string) (outPath string) {
@@ -66,16 +70,43 @@ func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
 	filename := year + "-" + month
 	filePath := path.Join("archive", filename)
 	filePath = determineCompression(w, r, filePath)
+
+	data, err := globalData.cache.Get(filePath, PageSpec{generateArchivePage, urlParams})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	sendData(w, r, filename+".html", data)
 }
 
 func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
+	filePath := path.Join("tags", urlParams["tag"])
+	filePath = determineCompression(w, r, filePath)
+
+	data, err := globalData.cache.Get(filePath, PageSpec{generateTagsPage, urlParams})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	sendData(w, r, urlParams["tag"]+".html", data)
 }
 
 func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
+	filePath := determineCompression(w, r, "index.html")
+	data, err := globalData.cache.Get(filePath, PageSpec{generateIndexPage, urlParams})
+
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	sendData(w, r, "index.html", data)
 }
 
 func exists(path string) bool {
@@ -92,7 +123,8 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 
 	object, err := globalData.cache.Get(filePath, DirectCacheFiller{})
 	if err != nil {
-		// TODO 404 error
+		handleError(w, r, err)
+		return
 	}
 
 	sendData(w, r, urlParams["file"], object)
@@ -115,7 +147,6 @@ func makeStaticAssetHeaders(w http.ResponseWriter) {
 func sendData(w http.ResponseWriter, r *http.Request, name string, object cache.Object) {
 	header := w.Header()
 	header.Add("Vary", "Accept-Encoding")
-	modTime := object.ModTime
 	// 30 days in seconds
 	if _, ok := header["Cache-Control"]; !ok {
 		header.Set("Cache-Control", "public, max-age=2592000")
@@ -125,7 +156,7 @@ func sendData(w http.ResponseWriter, r *http.Request, name string, object cache.
 	}
 
 	reader := bytes.NewReader(object.Data)
-	http.ServeContent(w, r, name, modTime, reader)
+	http.ServeContent(w, r, name, object.ModTime, reader)
 }
 
 type DirectCacheFiller struct {
