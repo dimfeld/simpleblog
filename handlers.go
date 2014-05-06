@@ -112,11 +112,6 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	sendData(w, r, filename, data)
 }
 
-func exists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
-}
-
 func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 	filePath := path.Join("assets", urlParams["file"])
