@@ -20,8 +20,9 @@ type Filler interface {
 }
 
 type Cache interface {
+	// Get an object, optionally
 	Get(path string, filler Filler) (Object, error)
-	Set(path string, object Object, writeThrough bool) error
+	Set(path string, object Object) error
 	// Delete an item from the cache. Include a "*" wildcard at the end to purge multiple items.
 	Del(path string)
 }
@@ -54,14 +55,14 @@ func CompressAndSet(cache Cache, path string, data []byte, modTime time.Time) (u
 	compressedItem := Object{gzBuf.Bytes(), modTime}
 
 	// Add the compressed version to the cache.
-	err = cache.Set(compressedPath, compressedItem, true)
+	err = cache.Set(compressedPath, compressedItem)
 	if err != nil {
 		return Object{}, Object{}, err
 	}
 
 	// Also add the uncompressed version.
 	uncompressedItem := Object{data, modTime}
-	err = cache.Set(uncompressedPath, uncompressedItem, true)
+	err = cache.Set(uncompressedPath, uncompressedItem)
 
 	return uncompressedItem, compressedItem, err
 }

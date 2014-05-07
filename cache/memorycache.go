@@ -6,18 +6,15 @@ import (
 	"sync"
 )
 
-// Ideally this would have separate caches for small and large objects, so that loading a few large
-// objects into the cache doesn't evict all the smaller ones.
 type memoryCache struct {
 	lock        sync.RWMutex
 	memoryLimit int // Memory Limit in bytes. This isn't quite accurate.
 	objectLimit int
-	nextLevel   Cache
 	object      map[string]Object
 	memoryUsage int
 }
 
-func (m *memoryCache) Set(path string, item Object, writeThrough bool) error {
+func (m *memoryCache) Set(path string, item Object) error {
 	m.lock.Lock()
 
 	oldItem, ok := m.object[path]
@@ -25,9 +22,8 @@ func (m *memoryCache) Set(path string, item Object, writeThrough bool) error {
 		m.memoryUsage -= len(oldItem.Data)
 	}
 
-	if len(item.Data) > m.objectLimit {
-		// If this item takes up more than 25% of our memory limit, don't store it in this cache,
-		// but still do writethrough if enabled.
+	if m.objectLimit == 0 || len(item.Data) > m.objectLimit {
+		// If this item takes up more than our object limit, don't store it in this cache.
 		delete(m.object, path)
 	} else {
 		if m.memoryUsage+len(item.Data) > m.memoryLimit {
@@ -38,10 +34,6 @@ func (m *memoryCache) Set(path string, item Object, writeThrough bool) error {
 		m.memoryUsage += len(item.Data)
 	}
 	m.lock.Unlock()
-
-	if writeThrough && m.nextLevel != nil {
-		m.nextLevel.Set(path, item, true)
-	}
 
 	return nil
 }
@@ -64,10 +56,6 @@ func (m *memoryCache) Del(path string) {
 		delete(m.object, path)
 		m.lock.Unlock()
 	}
-
-	if m.nextLevel != nil {
-		m.nextLevel.Del(path)
-	}
 }
 
 func (m *memoryCache) Get(path string, filler Filler) (item Object, err error) {
@@ -75,17 +63,8 @@ func (m *memoryCache) Get(path string, filler Filler) (item Object, err error) {
 	item = m.object[path]
 	m.lock.RUnlock()
 
-	if len(item.Data) == 0 {
-		if m.nextLevel != nil {
-			item, err = m.nextLevel.Get(path, filler)
-
-			if err != nil && len(item.Data) < m.objectLimit {
-				// We got a valid item. Add it to our cache.
-				m.Set(path, item, false)
-			}
-		} else {
-			item, err = filler.Fill(m, path)
-		}
+	if len(item.Data) == 0 && filler != nil {
+		item, err = filler.Fill(m, path)
 		if err != nil {
 			return item, err
 		}
@@ -103,10 +82,9 @@ func (m *memoryCache) trim() {
 
 // NewmemoryCache creates a new cache.
 // 	memoryLimit is roughly the maximum amount of memory that will be used.
-//  nextLevel is an optional interface allowing write-through behavior.
-func NewMemoryCache(memoryLimit int, nextLevel Cache) Cache {
+//  objectLimit is the largest object that the cache will store, or 0 for no limit.
+func NewMemoryCache(memoryLimit int, objectLimit int) Cache {
 	return &memoryCache{memoryLimit: memoryLimit,
-		objectLimit: memoryLimit / 4,
-		object:      make(map[string]Object),
-		nextLevel:   nextLevel}
+		objectLimit: objectLimit,
+		object:      make(map[string]Object)}
 }

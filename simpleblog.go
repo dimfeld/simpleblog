@@ -31,9 +31,20 @@ func main() {
 	// TODO Load configuration
 
 	diskCache := cachePkg.NewDiskCache("cache")
-	memCache := cachePkg.NewMemoryCache(64*1024*1024, diskCache)
+	// Large memory cache uses 64 MiB at most, with the larges object being 8 MiB.
+	largeObjectLimit := 8 * 1024 * 1024
+	largeMemCache := cachePkg.NewMemoryCache(64*1024*1024, largeObjectLimit)
+	// Small memory cache uses 16 MiB at most, with the largest object being 16KiB.
+	smallObjectLimit := 8 * 1024 * 1024
+	smallMemCache := cachePkg.NewMemoryCache(16*1024*1024, smallObjectLimit)
 
-	globalData := &GlobalData{cache: memCache}
+	memCache := cachePkg.NewSplitSize(
+		cachePkg.SplitSizeChild{smallObjectLimit, smallMemCache},
+		cachePkg.SplitSizeChild{largeObjectLimit, largeMemCache})
+
+	multiLevelCache := cachePkg.MultiLevel{0: memCache, 1: diskCache}
+
+	globalData := &GlobalData{cache: multiLevelCache}
 
 	router := httprouter.New()
 	router.GET("/", handlerWrapper(indexHandler, globalData))

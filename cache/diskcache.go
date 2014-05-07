@@ -10,11 +10,11 @@ import (
 )
 
 type DiskCache struct {
-	baseDir string
+	baseDir  string
+	fileList map[string]int
 }
 
-func (d *DiskCache) Set(pathStr string, object Object, writeThrough bool) error {
-	// Ignore writeThrough since there's no backing cache here.
+func (d *DiskCache) Set(pathStr string, object Object) error {
 	pathStr = path.Join(d.baseDir, pathStr)
 	dirPath, _ := path.Split(pathStr)
 
@@ -29,6 +29,7 @@ func (d *DiskCache) Set(pathStr string, object Object, writeThrough bool) error 
 	}
 
 	os.Chtimes(pathStr, object.ModTime, object.ModTime)
+	d.fileList[pathStr] = len(object.Data)
 
 	return nil
 }
@@ -41,18 +42,24 @@ func (d *DiskCache) Del(pathStr string) {
 	}
 
 	for i := range matches {
+		delete(d.fileList, matches[i])
 		err = os.RemoveAll(matches[i])
 		if err != nil {
-			// Syslog removal failure
+			// log removal failure
 		}
 	}
 }
 
 func (d *DiskCache) Get(filename string, filler Filler) (Object, error) {
-	cachePath := d.baseDir + filename
+	cachePath := path.Join(d.baseDir, filename)
+	if _, ok := d.fileList[cachePath]; !ok {
+		// The object is not currently present in the disk cache. Try to generate it.
+		return filler.Fill(d, filename)
+	}
+
 	f, err := os.Open(cachePath)
 	if err != nil {
-		// The object is not currently present in the disk cache. Try to generate it.
+		// The object should be present, but is not. Try to generate it.
 		return filler.Fill(d, filename)
 	}
 
@@ -71,6 +78,17 @@ func (d *DiskCache) Get(filename string, filler Filler) (Object, error) {
 	return obj, err
 }
 
+func (d *DiskCache) initialScanWalkFunc(filename string, info os.FileInfo, err error) error {
+	d.fileList[filename] = int(info.Size())
+	return nil
+}
+
+func (d *DiskCache) runInitialScan() {
+	filepath.Walk(d.baseDir, d.initialScanWalkFunc)
+}
+
 func NewDiskCache(baseDir string) Cache {
-	return &DiskCache{baseDir}
+	d := &DiskCache{baseDir, make(map[string]int)}
+	d.runInitialScan()
+	return d
 }
