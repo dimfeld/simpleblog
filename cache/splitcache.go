@@ -46,7 +46,7 @@ func (c SplitSize) Get(path string, filler Filler) (o Object, err error) {
 func (c SplitSize) Set(path string, object Object) error {
 	objectSize := len(object.Data)
 	for _, child := range c {
-		if objectSize < child.MaxSize {
+		if objectSize < child.MaxSize || child.MaxSize == 0 {
 			return child.Cache.Set(path, object)
 		}
 	}
@@ -62,7 +62,7 @@ func (c SplitSize) Del(path string) {
 }
 
 func (c SplitSize) Less(i, j int) bool {
-	return c[i].MaxSize < c[j].MaxSize
+	return c[i].MaxSize < c[j].MaxSize || c[j].MaxSize == 0
 }
 
 func (c SplitSize) Len() int {
