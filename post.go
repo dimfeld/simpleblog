@@ -10,13 +10,17 @@ import (
 	"unicode"
 )
 
-type Post struct {
+type PostHeader struct {
 	SourcePath string
 	Title      string
 	UrlTitle   string
 	Timestamp  time.Time
 	Tags       []string
-	Content    []byte
+}
+
+type Post struct {
+	PostHeader
+	Content []byte
 }
 
 func urlTitleMap(r rune) rune {
@@ -39,25 +43,7 @@ func MakeUrlTitle(s string) string {
 	return strings.Map(urlTitleMap, s)
 }
 
-// NewPost reads a post from disk and returns a Post containing its data.
-// If readContent is false, only the header of the post is read.
-// The post format is:
-// Title
-// Date/Time
-// Tags
-//
-// Markdown Content
-func NewPost(filePath string, readContent bool) (p *Post, err error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	p = &Post{SourcePath: filePath}
-
-	reader := bufio.NewReader(f)
-
+func (p *PostHeader) readHeader(reader *bufio.Reader) (err error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return
@@ -89,17 +75,54 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 		return
 	}
 	if len(line) != 1 {
-		return p, fmt.Errorf("Unexpected input %s", string(line))
+		return fmt.Errorf("Unexpected input after header: %s", string(line))
 	}
 
-	if readContent {
-		buf := &bytes.Buffer{}
-		_, err = buf.ReadFrom(reader)
-		if err != nil {
-			return
-		}
-		p.Content = buf.Bytes()
+	return nil
+}
+
+// NewPostHeader works similarly to NewPost, except it only reads and returns a header
+func NewPostHeader(filePath string) (p *PostHeader, err error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
 	}
+
+	p = &PostHeader{SourcePath: filePath}
+	reader := bufio.NewReader(f)
+	err = p.readHeader(reader)
+	f.Close()
+	return
+}
+
+// NewPost reads a post from disk and returns a Post containing its data.
+// If readContent is false, only the header of the post is read.
+// The post format is:
+// Title
+// Date/Time
+// Tags
+//
+// Markdown Content
+func NewPost(filePath string) (p *Post, err error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	p = &Post{}
+	p.SourcePath = filePath
+
+	reader := bufio.NewReader(f)
+
+	p.PostHeader.readHeader(reader)
+
+	buf := &bytes.Buffer{}
+	_, err = buf.ReadFrom(reader)
+	if err != nil {
+		return
+	}
+	p.Content = buf.Bytes()
 
 	return
 }
