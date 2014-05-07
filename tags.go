@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -38,14 +40,48 @@ func (tags *Tags) Save(tagFile string) error {
 	return ioutil.WriteFile(tagFile, buf, 0600)
 }
 
-func (tags *Tags) Generate(postPath string) (*Tags, error) {
+func (tags *Tags) Generate(postPath string) error {
 	// Walk through postPath, finding all posts.
 	// On each file that successfully parses, add it to the map.
-	return nil, nil
+
+	err := tags.readPostHeaders(postPath)
+	if err != nil {
+		return err
+	}
+
+	// Now we have the Post headers. Generate the tag collections from that.
+	for _, post := range tags.PostHeader {
+		for _, tag := range post.Tags {
+			l := tags.Tag[tag]
+			if l == nil {
+				l = make([]string, 0)
+			}
+			l = append(l, post.SourcePath)
+			tags.Tag[tag] = l
+		}
+	}
+
+	return nil
 }
 
-func (tags *Tags) readPostHeaders(postPath string) {
+func (tags *Tags) postHeadersWalkFunc(path string, info os.FileInfo, err error) error {
+	if info.IsDir() {
+		// Nothing to do for directories
+		return nil
+	}
 
+	post, err := NewPostHeader(path)
+	if err != nil {
+		// Returning an error here will stop the walk, so log the error some other way.
+		return nil
+	}
+
+	tags.PostHeader[path] = post
+	return nil
+}
+
+func (tags *Tags) readPostHeaders(postPath string) error {
+	return filepath.Walk(postPath, tags.postHeadersWalkFunc)
 }
 
 func (tags *Tags) PostsByDate(tag string) PostList {
@@ -81,6 +117,7 @@ func (tags *Tags) TagsByPopularity() []string {
 	return s
 }
 
+// Less compares two PostHeader objects in a PostList by date.
 func (l PostList) Less(i, j int) bool {
 	return l[i].Timestamp.Before(l[j].Timestamp)
 }
