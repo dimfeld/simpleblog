@@ -117,7 +117,7 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join("assets", urlParams["file"])
 	filePath = determineCompression(w, r, filePath)
 
-	makeStaticAssetHeaders(w)
+	setStaticAssetHeaders(w)
 
 	object, err := globalData.cache.Get(filePath, DirectCacheFiller{})
 	if err != nil {
@@ -131,11 +131,11 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 func simpleHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 	path := "content" + r.URL.Path
-	makeStaticAssetHeaders(w)
+	setStaticAssetHeaders(w)
 	http.ServeFile(w, r, path)
 }
 
-func makeStaticAssetHeaders(w http.ResponseWriter) {
+func setStaticAssetHeaders(w http.ResponseWriter) {
 	w.Header().Set("Expires", time.Now().AddDate(1, 0, 0).String())
 	// One year in seconds
 	w.Header().Set("Cache-Control", "public, max-age=31536000")
