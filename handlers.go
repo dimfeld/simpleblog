@@ -117,22 +117,30 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join("assets", urlParams["file"])
 	filePath = determineCompression(w, r, filePath)
 
-	setStaticAssetHeaders(w)
-
-	object, err := globalData.cache.Get(filePath, DirectCacheFiller{})
+	object, err := globalData.cache.Get(filePath, DirectCacheFiller{true})
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 
+	setStaticAssetHeaders(w)
 	sendData(w, r, urlParams["file"], object)
 }
 
-func simpleHandler(globalData *GlobalData, w http.ResponseWriter,
+func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	path := "content" + r.URL.Path
+	filePath := "content" + r.URL.Path
+
+	// Only read from the memCache, not the disk cache, since we aren't generating
+	// compressed versions.
+	object, err := globalData.memCache.Get(filePath, DirectCacheFiller{false})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
 	setStaticAssetHeaders(w)
-	http.ServeFile(w, r, path)
+	sendData(w, r, urlParams["file"], object)
 }
 
 func setStaticAssetHeaders(w http.ResponseWriter) {
@@ -158,11 +166,12 @@ func sendData(w http.ResponseWriter, r *http.Request, name string, object cache.
 }
 
 type DirectCacheFiller struct {
+	canCompress bool
 }
 
 func (d DirectCacheFiller) Fill(cacheObj cache.Cache, pathStr string) (cache.Object, error) {
 	compressed := false
-	if strings.HasSuffix(pathStr, ".gz") {
+	if d.canCompress && strings.HasSuffix(pathStr, ".gz") {
 		// Get the path without .gz at the end since we start with the uncompresed version.
 		pathStr = pathStr[0 : len(pathStr)-3]
 		compressed = true
@@ -185,10 +194,16 @@ func (d DirectCacheFiller) Fill(cacheObj cache.Cache, pathStr string) (cache.Obj
 		return cache.Object{}, err
 	}
 
-	compressedObj, uncompressedObj, err := cache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
-	if compressed {
-		return compressedObj, err
+	if d.canCompress {
+		compressedObj, uncompressedObj, err := cache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
+		if compressed {
+			return compressedObj, err
+		} else {
+			return uncompressedObj, err
+		}
 	} else {
-		return uncompressedObj, err
+		obj := cache.Object{data, fstat.ModTime()}
+		cacheObj.Set(pathStr, obj)
+		return obj, nil
 	}
 }

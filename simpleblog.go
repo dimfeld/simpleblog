@@ -3,8 +3,7 @@ package main
 import (
 	cachePkg "github.com/dimfeld/simpleblog/cache"
 	"github.com/julienschmidt/httprouter"
-
-	//	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -16,7 +15,9 @@ type Article struct {
 
 type GlobalData struct {
 	// General cache
-	cache cachePkg.Cache
+	cache    cachePkg.Cache
+	memCache cachePkg.Cache
+	logger   log.Logger
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
@@ -31,11 +32,13 @@ func main() {
 	// TODO Load configuration
 
 	diskCache := cachePkg.NewDiskCache("cache")
+	diskCache.RunInitialScan()
+
 	// Large memory cache uses 64 MiB at most, with the larges object being 8 MiB.
 	largeObjectLimit := 8 * 1024 * 1024
 	largeMemCache := cachePkg.NewMemoryCache(64*1024*1024, largeObjectLimit)
 	// Small memory cache uses 16 MiB at most, with the largest object being 16KiB.
-	smallObjectLimit := 8 * 1024 * 1024
+	smallObjectLimit := 16 * 1024 * 1024
 	smallMemCache := cachePkg.NewMemoryCache(16*1024*1024, smallObjectLimit)
 
 	memCache := cachePkg.NewSplitSize(
@@ -44,7 +47,10 @@ func main() {
 
 	multiLevelCache := cachePkg.MultiLevel{0: memCache, 1: diskCache}
 
-	globalData := &GlobalData{cache: multiLevelCache}
+	globalData := &GlobalData{
+		cache:    multiLevelCache,
+		memCache: memCache,
+	}
 
 	router := httprouter.New()
 	router.GET("/", handlerWrapper(indexHandler, globalData))
@@ -54,7 +60,7 @@ func main() {
 	//router.GET("/tag/:tag", handlerWrapper(tagHandler, globalData))
 	// No pagination yet.
 	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
-	router.GET("/images/*file", handlerWrapper(simpleHandler, globalData))
+	router.GET("/images/*file", handlerWrapper(staticNoCompressHandler, globalData))
 	router.GET("/assets/*file", handlerWrapper(staticCompressHandler, globalData))
 	router.GET("/favicon.ico", handlerWrapper(staticCompressHandler, globalData))
 

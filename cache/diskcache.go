@@ -83,12 +83,10 @@ func (d *DiskCache) initialScanWalkFunc(filename string, info os.FileInfo, err e
 	return nil
 }
 
-func (d *DiskCache) runInitialScan() {
+func (d *DiskCache) RunInitialScan() {
 	filepath.Walk(d.baseDir, d.initialScanWalkFunc)
 }
 
-func NewDiskCache(baseDir string) Cache {
-	d := &DiskCache{baseDir, make(map[string]int)}
-	d.runInitialScan()
-	return d
+func NewDiskCache(baseDir string) *DiskCache {
+	return &DiskCache{baseDir, make(map[string]int)}
 }
