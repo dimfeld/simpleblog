@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/russross/blackfriday"
 	"os"
 	"strings"
 	"time"
@@ -102,4 +103,8 @@ func NewPost(filePath string) (p *Post, err error) {
 	p.Content = buf.Bytes()
 
 	return
+}
+
+func (p *Post) HTML() []byte {
+	return blackfriday.MarkdownCommon(p.Content)
 }

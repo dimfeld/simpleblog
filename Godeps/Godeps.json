@@ -3,8 +3,18 @@
 	"GoVersion": "go1.2.1",
 	"Deps": [
 		{
+			"ImportPath": "code.google.com/p/go.net/html",
+			"Comment": "null-126",
+			"Rev": "53130366067a9f0b47893ae8a81677391fdd0f42"
+		},
+		{
 			"ImportPath": "github.com/julienschmidt/httprouter",
 			"Rev": "9b1fa09c72280f35b53536e843664c0c205987c8"
+		},
+		{
+			"ImportPath": "github.com/russross/blackfriday",
+			"Comment": "v1.1-115-gf3ab184",
+			"Rev": "f3ab1849e6b17a1564b9088d01fee399a83cddd7"
 		}
 	]
 }
