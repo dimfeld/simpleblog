@@ -7,13 +7,11 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode"
 )
 
 type PostHeader struct {
 	SourcePath string
 	Title      string
-	UrlTitle   string
 	Timestamp  time.Time
 	Tags       []string
 }
@@ -23,33 +21,12 @@ type Post struct {
 	Content []byte
 }
 
-func urlTitleMap(r rune) rune {
-	switch {
-	case unicode.IsLetter(r):
-		return unicode.ToLower(r)
-
-	case unicode.IsDigit(r):
-		return r
-
-	case unicode.IsSpace(r):
-		return '-'
-
-	default:
-		return -1
-	}
-}
-
-func MakeUrlTitle(s string) string {
-	return strings.Map(urlTitleMap, s)
-}
-
 func (p *PostHeader) readHeader(reader *bufio.Reader) (err error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return
 	}
 	p.Title = string(line[0 : len(line)-1])
-	p.UrlTitle = MakeUrlTitle(p.Title)
 
 	line, err = reader.ReadString('\n')
 	if err != nil {
