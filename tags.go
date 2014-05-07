@@ -3,13 +3,17 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"sort"
 )
+
+type PostList []*PostHeader
+type PostMap map[string][]string
 
 type Tags struct {
 	// Collection of PostHeader objects, indexed by file path.
 	PostHeader map[string]*PostHeader
 	// For each tag found, a collection of file paths.
-	Tag map[string][]string
+	Tag PostMap
 }
 
 func NewTags() *Tags {
@@ -42,4 +46,49 @@ func (tags *Tags) Generate(postPath string) (*Tags, error) {
 
 func (tags *Tags) readPostHeaders(postPath string) {
 
+}
+
+func (tags *Tags) PostsByDate(tag string) PostList {
+	paths := tags.Tag[tag]
+	l := make(PostList, len(paths))
+	for i, path := range paths {
+		l[i] = tags.PostHeader[path]
+	}
+	sort.Sort(l)
+	return l
+}
+
+func (tags *Tags) TagsByName() []string {
+	s := make([]string, len(tags.Tag))
+	i := 0
+	for tag, _ := range tags.Tag {
+		s[i] = tag
+	}
+
+	sort.Strings(s)
+	return s
+}
+
+func (tags *Tags) TagsByPopularity() []string {
+	s := make([]string, len(tags.Tag))
+	i := 0
+	for tag, _ := range tags.Tag {
+		s[i] = tag
+	}
+
+	// TODO Need to do the sort here.
+
+	return s
+}
+
+func (l PostList) Less(i, j int) bool {
+	return l[i].Timestamp.Before(l[j].Timestamp)
+}
+
+func (l PostList) Len() int {
+	return len(l)
+}
+
+func (l PostList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }
