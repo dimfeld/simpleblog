@@ -34,7 +34,7 @@ func main() {
 	diskCache := cachePkg.NewDiskCache("cache")
 	diskCache.RunInitialScan()
 
-	// Large memory cache uses 64 MiB at most, with the larges object being 8 MiB.
+	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
 	largeObjectLimit := 8 * 1024 * 1024
 	largeMemCache := cachePkg.NewMemoryCache(64*1024*1024, largeObjectLimit)
 	// Small memory cache uses 16 MiB at most, with the largest object being 16KiB.
