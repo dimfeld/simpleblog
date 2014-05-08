@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"github.com/dimfeld/simpleblog/cache"
+	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"path"
 	"strings"
@@ -117,7 +118,8 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 
 func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	filePath := path.Join("assets", urlParams["file"])
+	p := httprouter.CleanPath(urlParams["file"])
+	filePath := path.Join("assets", p)
 	filePath = determineCompression(w, r, filePath)
 
 	object, err := globalData.cache.Get(filePath,
@@ -133,7 +135,7 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 
 func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	filePath := "content" + r.URL.Path
+	filePath := "content" + httprouter.CleanPath(r.URL.Path)
 
 	// Only read from the memCache, not the disk cache, since we aren't generating
 	// compressed versions.
