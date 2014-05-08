@@ -93,7 +93,7 @@ func (d *DiskCache) initialScanWalkFunc(filename string, info os.FileInfo, err e
 	return nil
 }
 
-func (d *DiskCache) RunInitialScan() {
+func (d *DiskCache) ScanExisting() {
 	filepath.Walk(d.baseDir, d.initialScanWalkFunc)
 }
 
