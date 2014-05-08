@@ -2,6 +2,7 @@ package main
 
 import (
 	cachePkg "github.com/dimfeld/simpleblog/cache"
+	"github.com/dimfeld/simpleblog/treewatcher"
 	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
@@ -31,6 +32,25 @@ func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httproute
 	}
 }
 
+func watchFiles(globalData *GlobalData) {
+	tw, err := treewatcher.New()
+	if err != nil {
+		return
+	}
+
+	tw.WatchTree(string(globalData.dataDir))
+
+	for {
+		select {
+		case event := <-tw.Event:
+			// TODO See what happened here and purge the cache appropriately.
+			event = event
+		case err := <-tw.Error:
+			globalData.logger.Println(err)
+		}
+	}
+}
+
 func main() {
 	// TODO Load these from configuration
 	cacheDir := "./cache"
@@ -57,6 +77,8 @@ func main() {
 		memCache: memCache,
 		dataDir:  dataDir,
 	}
+
+	watchFiles(globalData)
 
 	router := httprouter.New()
 	router.GET("/", handlerWrapper(indexHandler, globalData))
