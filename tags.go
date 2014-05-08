@@ -7,34 +7,73 @@ import (
 )
 
 type TagPostMap map[string][]string
+type TagPopularity []TagCount
 
 type Tags struct {
+	TagsFile string `json:"-"`
+	Loaded   bool   `json:"-"`
 	// Collection of Post objects, indexed by file path.
+	// These Post objects do not have the content filled in.
 	Post map[string]*Post
 	// For each tag found, a collection of file paths.
 	Tag TagPostMap
 }
 
-func NewTags() *Tags {
-	return &Tags{make(map[string]*Post), make(map[string][]string)}
+type TagCount struct {
+	Tag   string
+	Count int
 }
 
-func LoadTags(tagFile string) (*Tags, error) {
-	buf, err := ioutil.ReadFile(tagFile)
+func NewTags(tagsFile string, postPath string) *Tags {
+	tags := &Tags{tagsFile, false, make(map[string]*Post), make(map[string][]string)}
+	// Ignore errors here. It's ok if we can't load, which usually just means that the
+	// tags file doesn't exist.
+	err := tags.Load()
 	if err != nil {
-		return nil, err
+		err = tags.Generate(postPath)
+		if err != nil {
+			return nil
+		}
+		tags.Save()
 	}
-	tags := &Tags{}
-	err = json.Unmarshal(buf, tags.Tag)
-	return tags, err
+	return tags
 }
 
-func (tags *Tags) Save(tagFile string) error {
-	buf, err := json.Marshal(tags.Tag)
+func (tags *Tags) AddPost(post *Post) {
+	tags.Post[post.SourcePath] = post
+	for _, tag := range post.Tags {
+		tags.AddPostTag(post, tag)
+	}
+}
+
+func (tags *Tags) AddPostTag(post *Post, tag string) {
+	l := tags.Tag[tag]
+	if l == nil {
+		l = make([]string, 0)
+	}
+	l = append(l, post.SourcePath)
+	tags.Tag[tag] = l
+}
+
+func (tags *Tags) Load() error {
+	buf, err := ioutil.ReadFile(tags.TagsFile)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(tagFile, buf, 0600)
+	err = json.Unmarshal(buf, tags)
+	if err != nil {
+		return err
+	}
+	tags.Loaded = true
+	return nil
+}
+
+func (tags *Tags) Save() error {
+	buf, err := json.Marshal(tags)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(tags.TagsFile, buf, 0600)
 }
 
 func (tags *Tags) Generate(postPath string) error {
@@ -49,12 +88,7 @@ func (tags *Tags) Generate(postPath string) error {
 	// Now we have the Post headers. Generate the tag collections from that.
 	for _, post := range tags.Post {
 		for _, tag := range post.Tags {
-			l := tags.Tag[tag]
-			if l == nil {
-				l = make([]string, 0)
-			}
-			l = append(l, post.SourcePath)
-			tags.Tag[tag] = l
+			tags.AddPostTag(post, tag)
 		}
 	}
 
@@ -94,14 +128,28 @@ func (tags *Tags) TagsByName() []string {
 	return s
 }
 
-func (tags *Tags) TagsByPopularity() []string {
-	s := make([]string, len(tags.Tag))
+func (tags *Tags) TagsByPopularity() TagPopularity {
+	tp := make(TagPopularity, len(tags.Tag))
 	i := 0
-	for tag, _ := range tags.Tag {
-		s[i] = tag
+	for tag, posts := range tags.Tag {
+		tp[i] = TagCount{tag, len(posts)}
+		i++
 	}
 
-	// TODO Need to do the sort here.
+	sort.Sort(tp)
 
-	return s
+	return tp
+}
+
+func (pop TagPopularity) Less(i, j int) bool {
+	// TODO Sort by count or by title?
+	return pop[i].Count < pop[j].Count
+}
+
+func (pop TagPopularity) Len() int {
+	return len(pop)
+}
+
+func (pop TagPopularity) Swap(i, j int) {
+	pop[i], pop[j] = pop[j], pop[i]
 }
