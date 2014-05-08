@@ -18,6 +18,9 @@ type GlobalData struct {
 	cache    cachePkg.Cache
 	memCache cachePkg.Cache
 	logger   log.Logger
+	dataDir  http.Dir
+	tags     *Tags
+	tagsPath string
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
@@ -29,9 +32,11 @@ func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httproute
 }
 
 func main() {
-	// TODO Load configuration
+	// TODO Load these from configuration
+	cacheDir := "./cache"
+	dataDir := http.Dir("./data")
 
-	diskCache := cachePkg.NewDiskCache("cache")
+	diskCache := cachePkg.NewDiskCache(cacheDir)
 	diskCache.RunInitialScan()
 
 	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
@@ -50,6 +55,7 @@ func main() {
 	globalData := &GlobalData{
 		cache:    multiLevelCache,
 		memCache: memCache,
+		dataDir:  dataDir,
 	}
 
 	router := httprouter.New()
@@ -63,6 +69,9 @@ func main() {
 	router.GET("/images/*file", handlerWrapper(staticNoCompressHandler, globalData))
 	router.GET("/assets/*file", handlerWrapper(staticCompressHandler, globalData))
 	router.GET("/favicon.ico", handlerWrapper(staticCompressHandler, globalData))
+
+	globalData.tagsPath = "tags.json"
+	LoadTags(globalData.tagsPath)
 
 	http.ListenAndServe(":8080", router)
 }

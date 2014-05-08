@@ -6,23 +6,22 @@ import (
 	"fmt"
 	"github.com/russross/blackfriday"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-type PostHeader struct {
+type PostList []*Post
+
+type Post struct {
 	SourcePath string
 	Title      string
 	Timestamp  time.Time
 	Tags       []string
+	Content    []byte
 }
 
-type Post struct {
-	PostHeader
-	Content []byte
-}
-
-func (p *PostHeader) readHeader(reader *bufio.Reader) (err error) {
+func (p *Post) readHeader(reader *bufio.Reader) (err error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return
@@ -59,20 +58,6 @@ func (p *PostHeader) readHeader(reader *bufio.Reader) (err error) {
 	return nil
 }
 
-// NewPostHeader works similarly to NewPost, except it only reads and returns a header
-func NewPostHeader(filePath string) (p *PostHeader, err error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	p = &PostHeader{SourcePath: filePath}
-	reader := bufio.NewReader(f)
-	err = p.readHeader(reader)
-	f.Close()
-	return
-}
-
 // NewPost reads a post from disk and returns a Post containing its data.
 // If readContent is false, only the header of the post is read.
 // The post format is:
@@ -81,7 +66,7 @@ func NewPostHeader(filePath string) (p *PostHeader, err error) {
 // Tags
 //
 // Markdown Content
-func NewPost(filePath string) (p *Post, err error) {
+func NewPost(filePath string, readContent bool) (p *Post, err error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -93,18 +78,49 @@ func NewPost(filePath string) (p *Post, err error) {
 
 	reader := bufio.NewReader(f)
 
-	p.PostHeader.readHeader(reader)
+	p.readHeader(reader)
 
-	buf := &bytes.Buffer{}
-	_, err = buf.ReadFrom(reader)
-	if err != nil {
-		return
+	if readContent {
+		buf := &bytes.Buffer{}
+		_, err = buf.ReadFrom(reader)
+		if err != nil {
+			return
+		}
+		p.Content = buf.Bytes()
 	}
-	p.Content = buf.Bytes()
 
 	return
 }
 
-func (p *Post) HTML() []byte {
+func (p *Post) HTMLContent() []byte {
 	return blackfriday.MarkdownCommon(p.Content)
+}
+
+func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
+	postList := make(PostList, 1)
+	err := filepath.Walk(postPath,
+		func(filePath string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			newPost, err := NewPost(filePath, readContent)
+			if err != nil {
+				postList = append(postList, newPost)
+			}
+			return nil
+		})
+	return postList, err
+}
+
+// Less compares two PostH objects in a PostList by date.
+func (l PostList) Less(i, j int) bool {
+	return l[i].Timestamp.Before(l[j].Timestamp)
+}
+
+func (l PostList) Len() int {
+	return len(l)
+}
+
+func (l PostList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }

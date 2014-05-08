@@ -3,23 +3,20 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"sort"
 )
 
-type PostList []*PostHeader
-type PostMap map[string][]string
+type TagPostMap map[string][]string
 
 type Tags struct {
-	// Collection of PostHeader objects, indexed by file path.
-	PostHeader map[string]*PostHeader
+	// Collection of Post objects, indexed by file path.
+	Post map[string]*Post
 	// For each tag found, a collection of file paths.
-	Tag PostMap
+	Tag TagPostMap
 }
 
 func NewTags() *Tags {
-	return &Tags{make(map[string]*PostHeader), make(map[string][]string)}
+	return &Tags{make(map[string]*Post), make(map[string][]string)}
 }
 
 func LoadTags(tagFile string) (*Tags, error) {
@@ -50,7 +47,7 @@ func (tags *Tags) Generate(postPath string) error {
 	}
 
 	// Now we have the Post headers. Generate the tag collections from that.
-	for _, post := range tags.PostHeader {
+	for _, post := range tags.Post {
 		for _, tag := range post.Tags {
 			l := tags.Tag[tag]
 			if l == nil {
@@ -64,31 +61,23 @@ func (tags *Tags) Generate(postPath string) error {
 	return nil
 }
 
-func (tags *Tags) postHeadersWalkFunc(path string, info os.FileInfo, err error) error {
-	if info.IsDir() {
-		// Nothing to do for directories
-		return nil
-	}
-
-	post, err := NewPostHeader(path)
-	if err != nil {
-		// Returning an error here will stop the walk, so log the error some other way.
-		return nil
-	}
-
-	tags.PostHeader[path] = post
-	return nil
-}
-
 func (tags *Tags) readPostHeaders(postPath string) error {
-	return filepath.Walk(postPath, tags.postHeadersWalkFunc)
+	postList, err := LoadPostsFromPath(postPath, false)
+	if err != nil {
+		return err
+	}
+
+	for _, post := range postList {
+		tags.Post[post.SourcePath] = post
+	}
+	return nil
 }
 
 func (tags *Tags) PostsByDate(tag string) PostList {
 	paths := tags.Tag[tag]
 	l := make(PostList, len(paths))
 	for i, path := range paths {
-		l[i] = tags.PostHeader[path]
+		l[i] = tags.Post[path]
 	}
 	sort.Sort(l)
 	return l
@@ -115,17 +104,4 @@ func (tags *Tags) TagsByPopularity() []string {
 	// TODO Need to do the sort here.
 
 	return s
-}
-
-// Less compares two PostHeader objects in a PostList by date.
-func (l PostList) Less(i, j int) bool {
-	return l[i].Timestamp.Before(l[j].Timestamp)
-}
-
-func (l PostList) Len() int {
-	return len(l)
-}
-
-func (l PostList) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"github.com/dimfeld/simpleblog/cache"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -49,7 +48,8 @@ func postHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join(urlParams["year"], urlParams["month"], urlParams["post"])
 	filePath = determineCompression(w, r, filePath)
 
-	data, err := globalData.cache.Get(filePath, PageSpec{generatePostPage, urlParams})
+	data, err := globalData.cache.Get(filePath,
+		PageSpec{globalData, generatePostPage, urlParams})
 	if err != nil {
 		// TODO Handle err
 		return
@@ -73,7 +73,8 @@ func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join("archive", filename)
 	filePath = determineCompression(w, r, filePath)
 
-	data, err := globalData.cache.Get(filePath, PageSpec{generateArchivePage, urlParams})
+	data, err := globalData.cache.Get(filePath,
+		PageSpec{globalData, generateArchivePage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -88,7 +89,8 @@ func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join("tags", urlParams["tag"])
 	filePath = determineCompression(w, r, filePath)
 
-	data, err := globalData.cache.Get(filePath, PageSpec{generateTagsPage, urlParams})
+	data, err := globalData.cache.Get(filePath,
+		PageSpec{globalData, generateTagsPage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -103,7 +105,8 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	filename := "index.html"
 	filePath := determineCompression(w, r, filename)
 
-	data, err := globalData.cache.Get(filePath, PageSpec{generateIndexPage, urlParams})
+	data, err := globalData.cache.Get(filePath,
+		PageSpec{globalData, generateIndexPage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -117,7 +120,8 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := path.Join("assets", urlParams["file"])
 	filePath = determineCompression(w, r, filePath)
 
-	object, err := globalData.cache.Get(filePath, DirectCacheFiller{true})
+	object, err := globalData.cache.Get(filePath,
+		DirectCacheFiller{globalData, true})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -133,7 +137,8 @@ func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 
 	// Only read from the memCache, not the disk cache, since we aren't generating
 	// compressed versions.
-	object, err := globalData.memCache.Get(filePath, DirectCacheFiller{false})
+	object, err := globalData.memCache.Get(filePath,
+		DirectCacheFiller{globalData, false})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -166,6 +171,7 @@ func sendData(w http.ResponseWriter, r *http.Request, name string, object cache.
 }
 
 type DirectCacheFiller struct {
+	globalData  *GlobalData
 	canCompress bool
 }
 
@@ -177,7 +183,7 @@ func (d DirectCacheFiller) Fill(cacheObj cache.Cache, pathStr string) (cache.Obj
 		compressed = true
 	}
 
-	f, err := os.Open(pathStr)
+	f, err := d.globalData.dataDir.Open(pathStr)
 	if err != nil {
 		return cache.Object{}, err
 	}

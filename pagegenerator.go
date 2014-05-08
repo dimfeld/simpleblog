@@ -11,8 +11,9 @@ import (
 type PageGenerator func(map[string]string) ([]byte, error)
 
 type PageSpec struct {
-	generator PageGenerator
-	params    map[string]string
+	globalData *GlobalData
+	generator  PageGenerator
+	params     map[string]string
 }
 
 func (ps PageSpec) Fill(cacheObj cache.Cache, path string) (cache.Object, error) {
