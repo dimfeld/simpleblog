@@ -9,3 +9,4 @@ This blog engine generates and serves static pages, with tag and archiving suppo
 
 * [httprouter](https://github.com/julienschmidt/httprouter) for quick and easy URL routing
 * [blackfriday](https://github.com/russross/blackfriday) for Markdown->HTML conversion.
+* [fsnotify](https://github.com/howeyc/fsnotify) for inotify support.
