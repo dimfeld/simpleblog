@@ -5,7 +5,10 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
+	"math/rand"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -126,10 +129,10 @@ func TestCompressAndSet(t *testing.T) {
 	}
 }
 
-func generatePaths(numPaths int) []string {
+func generatePaths(prefix string, numPaths int) []string {
 	paths := make([]string, numPaths)
 	for i, _ := range paths {
-		paths[i] = fmt.Sprintf("%d/%d", i/10, i)
+		paths[i] = fmt.Sprintf("%s%d/%d", prefix, i/10, i)
 	}
 	return paths
 }
@@ -170,16 +173,16 @@ func singleCacheTest(t testing.TB, c Cache, paths []string, objectSize int, allo
 	}
 }
 
-func singleCacheBenchmark(b *testing.B, c Cache, objectSize int, allowLoss bool) {
-	paths := generatePaths(b.N)
+func benchmarkSingleCache(b *testing.B, c Cache, objectSize int, allowLoss bool) {
+	paths := generatePaths("", b.N)
 
 	b.ResetTimer()
 	singleCacheTest(b, c, paths, objectSize, allowLoss)
 }
 
-func singleCacheGetBenchmark(b *testing.B, c Cache, objectSize int, allowLoss bool) {
+func benchmarkSingleCacheGet(b *testing.B, c Cache, objectSize int, allowLoss bool) {
 	o := simpleObject(objectSize)
-	paths := generatePaths(b.N)
+	paths := generatePaths("", b.N)
 
 	for _, p := range paths {
 		c.Set(p, o)
@@ -194,9 +197,9 @@ func singleCacheGetBenchmark(b *testing.B, c Cache, objectSize int, allowLoss bo
 	}
 }
 
-func singleCacheSetBenchmark(b *testing.B, c Cache, objectSize int, allowLoss bool) {
+func benchmarkSingleCacheSet(b *testing.B, c Cache, objectSize int, allowLoss bool) {
 	o := simpleObject(objectSize)
-	paths := generatePaths(b.N)
+	paths := generatePaths("", b.N)
 
 	b.ResetTimer()
 	for _, p := range paths {
@@ -204,10 +207,63 @@ func singleCacheSetBenchmark(b *testing.B, c Cache, objectSize int, allowLoss bo
 	}
 }
 
-func multipleSetsBenchmark(b *testing.B, c Cache, objectSize int) {
+func parallelSetsLoop(t testing.TB, c Cache, paths []string, objectSize int,
+	wg *sync.WaitGroup, start *sync.RWMutex, verify bool) {
+	// Wait until the creator unlocks the mutex.
+	start.RLock()
+	data := []byte(strconv.Itoa(rand.Int()))
+	o := Object{data, time.Now()}
 
+	for _, p := range paths {
+		c.Set(p, o)
+	}
+
+	if verify {
+		for _, p := range paths {
+			obj, err := c.Get(p, nil)
+			if err != nil {
+				t.Error("Error retrieving", p, err)
+			} else if !Equal(obj, o) {
+				t.Errorf("Object at path %s was %s, expected %s", p, obj.String(), o.String())
+			}
+		}
+	}
+
+	start.RUnlock()
+	wg.Done()
+}
+
+func testParallelSets(t testing.TB, c Cache, iterations int, objectSize int, numGoroutines int,
+	verify bool) {
+	rand.Seed(1)
+	wg := &sync.WaitGroup{}
+	start := &sync.RWMutex{}
+	start.Lock()
+
+	for i := 0; i < numGoroutines; i++ {
+		paths := generatePaths(strconv.Itoa(i), iterations)
+		wg.Add(1)
+		go parallelSetsLoop(t, c, paths, objectSize, wg, start, verify)
+	}
+
+	b, ok := t.(*testing.B)
+	if ok {
+		b.ResetTimer()
+	}
+
+	// Unlock the mutex to start all the goroutines running.
+	start.Unlock()
+	wg.Wait()
+}
+
+func benchmarkParallelSets(b *testing.B, c Cache, objectSize int, numGoroutines int) {
+	testParallelSets(b, c, b.N/numGoroutines, objectSize, numGoroutines, false)
 }
 
 func testCacheFiller(t *testing.T, c Cache) {
+
+}
+
+func testWildcardDelete(t *testing.T, c Cache) {
 
 }

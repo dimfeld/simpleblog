@@ -70,35 +70,41 @@ func TestMemoryCacheTotalSizeLimit(t *testing.T) {
 	}
 }
 
-func TestMemoryCacheWildcardDeletes(t *testing.T) {
+func TestMemoryCacheParallelSets(t *testing.T) {
+	c := NewMemoryCache(1024*1024*1024, 0)
+	testParallelSets(t, c, 1000, 16, 10, true)
+}
 
+func TestMemoryCacheWildcardDeletes(t *testing.T) {
+	c := NewMemoryCache(1024*1024, 0)
+	testWildcardDelete(t, c)
 }
 
 func BenchmarkMemoryCacheSingle(b *testing.B) {
 	c := NewMemoryCache(b.N*32, 0)
-	singleCacheBenchmark(b, c, 16, false)
+	benchmarkSingleCache(b, c, 16, false)
 }
 
 func BenchmarkMemoryCacheGet(b *testing.B) {
 	c := NewMemoryCache(b.N*32, 0)
-	singleCacheGetBenchmark(b, c, 16, false)
+	benchmarkSingleCacheGet(b, c, 16, false)
 }
 
 func BenchmarkMemoryCacheSet(b *testing.B) {
 	c := NewMemoryCache(b.N*32, 0)
-	singleCacheSetBenchmark(b, c, 16, false)
+	benchmarkSingleCacheSet(b, c, 16, false)
 }
 
-func BenchmarkMemoryCacheMultipleSets(b *testing.B) {
+func BenchmarkMemoryCacheParallelSets(b *testing.B) {
 	c := NewMemoryCache(1024*1024*1024, 0)
-	multipleSetsBenchmark(b, c, 16)
+	benchmarkParallelSets(b, c, 16, 10)
 }
 
-// BenchmarkMemoryCacheWithTrim tests the performance of multiple sets
+// BenchmarkMemoryCacheWithTrim tests the performance of Parallel sets
 // when the sets exceed the memory limit, causing trim operations.
 func BenchmarkMemoryCacheWithTrim(b *testing.B) {
 	c := NewMemoryCache(1024, 0)
-	multipleSetsBenchmark(b, c, 100)
+	benchmarkParallelSets(b, c, 250, 10)
 }
 
 func BenchmarkWildcardDeletes(b *testing.B) {
