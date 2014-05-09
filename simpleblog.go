@@ -45,8 +45,8 @@ func main() {
 	// Create a split cache, putting all objects smaller than 16 KiB into the small cache.
 	// This split cache prevents a few large objects from evicting all the smaller objects.
 	memCache := cachePkg.NewSplitSize(
-		cachePkg.SplitSizeChild{smallObjectLimit, smallMemCache},
-		cachePkg.SplitSizeChild{largeObjectLimit, largeMemCache})
+		cachePkg.SplitSizeChild{MaxSize: smallObjectLimit, Cache: smallMemCache},
+		cachePkg.SplitSizeChild{MaxSize: largeObjectLimit, Cache: largeMemCache})
 
 	multiLevelCache := cachePkg.MultiLevel{0: memCache, 1: diskCache}
 

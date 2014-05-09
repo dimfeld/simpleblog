@@ -41,13 +41,13 @@ func TestSplitCache(t *testing.T) {
 		c.Del(path)
 		_, err := c.Get(path, nil)
 		if err == nil {
-			t.Error("Object %s still in cache after delete", path)
+			t.Errorf("Object %s still in cache after delete", path)
 		}
 
 		for i, item := range c {
 			_, err = item.Cache.Get(path, nil)
 			if err == nil {
-				t.Error("Object %s still in cache %d after delete", i, path)
+				t.Errorf("Object %s still in cache %d after delete", path, i)
 			}
 		}
 	}

@@ -34,7 +34,7 @@ func TestMemoryCacheObjectSizeLimit(t *testing.T) {
 		} else if len(o.Data) == limit+1 {
 			t.Error("Cache did not reject too-large object replacing another object")
 		} else {
-			t.Error("Something weird happened. Cache returned %s", o.String())
+			t.Error("Something weird happened. Cache returned", o.String())
 		}
 	}
 

@@ -210,7 +210,7 @@ func (d DirectCacheFiller) Fill(cacheObj cache.Cache, pathStr string) (cache.Obj
 			return uncompressedObj, err
 		}
 	} else {
-		obj := cache.Object{data, fstat.ModTime()}
+		obj := cache.Object{Data: data, ModTime: fstat.ModTime()}
 		cacheObj.Set(pathStr, obj)
 		return obj, nil
 	}
