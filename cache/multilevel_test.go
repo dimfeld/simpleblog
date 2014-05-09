@@ -43,6 +43,7 @@ func TestMultiLevelCache(t *testing.T) {
 	if err != nil {
 		t.Error("Get failed after first level cache purged object")
 	}
+	checkInternal("abc", "Get did not fill in inner cache")
 
 	c.Del("abc")
 	_, err = c.Get("abc", nil)
