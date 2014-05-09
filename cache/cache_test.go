@@ -207,7 +207,7 @@ func benchmarkSingleCacheSet(b *testing.B, c Cache, objectSize int, allowLoss bo
 	}
 }
 
-func parallelSetsLoop(t testing.TB, c Cache, paths []string, objectSize int,
+func parallelSetsLoop(t testing.TB, c Cache, paths []string, objectSize int, filler Filler,
 	wg *sync.WaitGroup, start *sync.RWMutex, verify bool) {
 	// Wait until the creator unlocks the mutex.
 	start.RLock()
@@ -220,11 +220,21 @@ func parallelSetsLoop(t testing.TB, c Cache, paths []string, objectSize int,
 
 	if verify {
 		for _, p := range paths {
-			obj, err := c.Get(p, nil)
+			obj, err := c.Get(p, filler)
 			if err != nil {
 				t.Error("Error retrieving", p, err)
 			} else if !Equal(obj, o) {
-				t.Errorf("Object at path %s was %s, expected %s", p, obj.String(), o.String())
+				throwError := true
+				if filler != nil {
+					filledObj, _ := filler.Fill(nil, p)
+					if Equal(obj, filledObj) {
+						throwError = false
+					}
+				}
+
+				if throwError {
+					t.Errorf("Object at path %s was %s, expected %s", p, obj.String(), o.String())
+				}
 			}
 		}
 	}
@@ -233,8 +243,8 @@ func parallelSetsLoop(t testing.TB, c Cache, paths []string, objectSize int,
 	wg.Done()
 }
 
-func testParallelSets(t testing.TB, c Cache, iterations int, objectSize int, numGoroutines int,
-	verify bool) {
+func testParallelSets(t testing.TB, c Cache, iterations int, objectSize int, filler Filler,
+	numGoroutines int, verify bool) {
 	rand.Seed(1)
 	wg := &sync.WaitGroup{}
 	start := &sync.RWMutex{}
@@ -243,7 +253,7 @@ func testParallelSets(t testing.TB, c Cache, iterations int, objectSize int, num
 	for i := 0; i < numGoroutines; i++ {
 		paths := generatePaths(strconv.Itoa(i), iterations)
 		wg.Add(1)
-		go parallelSetsLoop(t, c, paths, objectSize, wg, start, verify)
+		go parallelSetsLoop(t, c, paths, objectSize, filler, wg, start, verify)
 	}
 
 	b, ok := t.(*testing.B)
@@ -257,11 +267,56 @@ func testParallelSets(t testing.TB, c Cache, iterations int, objectSize int, num
 }
 
 func benchmarkParallelSets(b *testing.B, c Cache, objectSize int, numGoroutines int) {
-	testParallelSets(b, c, b.N/numGoroutines, objectSize, numGoroutines, false)
+	testParallelSets(b, c, b.N/numGoroutines, objectSize, nil, numGoroutines, false)
+}
+
+type dummyFiller struct {
+	prefix  string
+	modTime time.Time
+	err     error
+}
+
+func (d dummyFiller) Fill(cache Cache, path string) (Object, error) {
+	if d.err != nil {
+		return Object{}, d.err
+	}
+
+	modTime := d.modTime
+	if modTime.IsZero() {
+		modTime = time.Now()
+	}
+
+	data := strings.Join([]string{d.prefix, path}, "-")
+	obj := Object{[]byte(data), d.modTime}
+	if cache != nil {
+		cache.Set(path, obj)
+	}
+	return obj, nil
 }
 
 func testCacheFiller(t *testing.T, c Cache) {
+	f := dummyFiller{prefix: "fill", modTime: time.Now()}
 
+	_, err := c.Get("abc", f)
+	if err != nil {
+		t.Error("Get with Filler returned error", err)
+	}
+
+	_, err = c.Get("abc", nil)
+	if err != nil {
+		t.Error("Get with Filler did not actually fill cache")
+	}
+
+	obj := Object{[]byte("test object"), time.Now()}
+	err = c.Set("abc", obj)
+	if err != nil {
+		t.Error("Failed to overwrite object after Filler-backed get")
+	}
+
+	obj2, err := c.Get("abc", f)
+	if !Equal(obj, obj2) {
+		t.Error("Get with Filler should have had cache hit and not used Filler")
+	}
 }
 
 func testWildcardDelete(t *testing.T, c Cache) {

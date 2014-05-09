@@ -67,7 +67,7 @@ func TestDiskCacheFiller(t *testing.T) {
 func TestDiskCacheParallelSets(t *testing.T) {
 	c := makeDiskCache(t)
 	defer cleanup(c)
-	testParallelSets(t, c, 1000, 16, 10, true)
+	testParallelSets(t, c, 100, 16, nil, 10, true)
 }
 
 func BenchmarkDiskCacheSingle(b *testing.B) {

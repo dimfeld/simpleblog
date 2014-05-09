@@ -3,6 +3,7 @@ package cache
 import (
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestMemoryCacheBasic(t *testing.T) {
@@ -35,6 +36,17 @@ func TestMemoryCacheObjectSizeLimit(t *testing.T) {
 		} else {
 			t.Error("Something weird happened. Cache returned %s", o.String())
 		}
+	}
+
+	f := dummyFiller{prefix: "abcdefghijkl"}
+	_, err = c.Get("aaa", f)
+	if err != nil {
+		t.Error("Requesting too-large item with filler failed with", err)
+	}
+
+	_, err = c.Get("aaa", nil)
+	if err == nil {
+		t.Error("Too-large object was placed into cache through filler")
 	}
 }
 
@@ -70,9 +82,20 @@ func TestMemoryCacheTotalSizeLimit(t *testing.T) {
 	}
 }
 
+func TestMemoryCacheFiller(t *testing.T) {
+	c := NewMemoryCache(1024*1024, 0)
+	testCacheFiller(t, c)
+}
+
 func TestMemoryCacheParallelSets(t *testing.T) {
 	c := NewMemoryCache(1024*1024*1024, 0)
-	testParallelSets(t, c, 1000, 16, 10, true)
+	testParallelSets(t, c, 1000, 16, nil, 10, true)
+}
+
+func TestMemoryCacheParallelSetsWithTrimAndFiller(t *testing.T) {
+	c := NewMemoryCache(10240, 0)
+	filler := dummyFiller{prefix: "dummyFill", modTime: time.Now()}
+	testParallelSets(t, c, 1000, 200, filler, 10, true)
 }
 
 func TestMemoryCacheWildcardDeletes(t *testing.T) {

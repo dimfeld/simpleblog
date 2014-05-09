@@ -16,6 +16,7 @@ type Filler interface {
 	// Fill adds an object to the cache and also returns the object.
 	// When the file may be compressed or not, Fill may add both versions to the cache, but should return
 	// requested version of the item.
+	// Also, the implementation should be tolerant of a nil value for cache.
 	Fill(cache Cache, path string) (Object, error)
 }
 
