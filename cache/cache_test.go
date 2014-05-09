@@ -320,5 +320,42 @@ func testCacheFiller(t *testing.T, c Cache) {
 }
 
 func testWildcardDelete(t *testing.T, c Cache) {
+	paths := []string{"abc", "abd", "subdir/abc", "subdir/abd", "ddd", "subdir/ddd"}
 
+	testPattern := func(pattern string) {
+		expected := simpleObject(8)
+		for _, p := range paths {
+			c.Set(p, expected)
+		}
+
+		wildcard := pattern + "*"
+		t.Log("Testing delete of", wildcard)
+		c.Del(wildcard)
+		for _, p := range paths {
+			o, err := c.Get(p, nil)
+			if strings.HasPrefix(p, pattern) {
+				if err == nil {
+					t.Errorf("Delete of %s should delete %s", wildcard, p)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Delete of %s should not delete %s", wildcard, p)
+				}
+
+				if !Equal(expected, o) {
+					t.Errorf("Path %s contained %s, expected %s",
+						p, o.String(), expected.String())
+
+				}
+			}
+
+		}
+	}
+
+	testPattern("abc")
+	testPattern("ab")
+	testPattern("subdir")
+	testPattern("subdir/a")
+	testPattern("subdir/abd")
+	testPattern("d")
 }

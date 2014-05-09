@@ -129,7 +129,3 @@ func BenchmarkMemoryCacheWithTrim(b *testing.B) {
 	c := NewMemoryCache(1024, 0)
 	benchmarkParallelSets(b, c, 250, 10)
 }
-
-func BenchmarkWildcardDeletes(b *testing.B) {
-
-}
