@@ -2,6 +2,7 @@ package cache
 
 import (
 	//"github.com/dimfeld/simpleblog/lru"
+	"errors"
 	"strings"
 	"sync"
 )
@@ -22,7 +23,7 @@ func (m *memoryCache) Set(path string, item Object) error {
 		m.memoryUsage -= len(oldItem.Data)
 	}
 
-	if m.objectLimit == 0 || len(item.Data) > m.objectLimit {
+	if m.objectLimit != 0 && len(item.Data) > m.objectLimit {
 		// If this item takes up more than our object limit, don't store it in this cache.
 		delete(m.object, path)
 	} else {
@@ -41,6 +42,8 @@ func (m *memoryCache) Set(path string, item Object) error {
 func (m *memoryCache) Del(path string) {
 	if strings.HasSuffix(path, "*") {
 		// Delete all matching objects in the cache.
+		// This is slow, and where a radix tree might be better.
+		// But it also doesn't come up too often.
 		prefix := path[0 : len(path)-1]
 		m.lock.Lock()
 		for key, item := range m.object {
@@ -60,13 +63,14 @@ func (m *memoryCache) Del(path string) {
 
 func (m *memoryCache) Get(path string, filler Filler) (item Object, err error) {
 	m.lock.RLock()
-	item = m.object[path]
+	item, ok := m.object[path]
 	m.lock.RUnlock()
 
-	if len(item.Data) == 0 && filler != nil {
-		item, err = filler.Fill(m, path)
-		if err != nil {
-			return item, err
+	if !ok {
+		if filler != nil {
+			return filler.Fill(m, path)
+		} else {
+			return item, errors.New("Item not found")
 		}
 	}
 
@@ -83,7 +87,7 @@ func (m *memoryCache) trim() {
 // NewmemoryCache creates a new cache.
 // 	memoryLimit is roughly the maximum amount of memory that will be used.
 //  objectLimit is the largest object that the cache will store, or 0 for no limit.
-func NewMemoryCache(memoryLimit int, objectLimit int) Cache {
+func NewMemoryCache(memoryLimit int, objectLimit int) *memoryCache {
 	return &memoryCache{memoryLimit: memoryLimit,
 		objectLimit: objectLimit,
 		object:      make(map[string]Object)}

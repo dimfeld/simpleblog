@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -46,9 +47,9 @@ func (d *DiskCache) Del(pathStr string) {
 	}
 
 	d.lock.Lock()
-	for i := range matches {
-		delete(d.fileList, matches[i])
-		err = os.RemoveAll(matches[i])
+	for _, match := range matches {
+		delete(d.fileList, match)
+		err = os.RemoveAll(match)
 		if err != nil {
 			// log removal failure
 		}
@@ -63,13 +64,21 @@ func (d *DiskCache) Get(filename string, filler Filler) (Object, error) {
 	d.lock.RUnlock()
 	if !ok {
 		// The object is not currently present in the disk cache. Try to generate it.
-		return filler.Fill(d, filename)
+		if filler != nil {
+			return filler.Fill(d, filename)
+		} else {
+			return Object{}, errors.New(filename)
+		}
 	}
 
 	f, err := os.Open(cachePath)
 	if err != nil {
 		// The object should be present, but is not. Try to generate it.
-		return filler.Fill(d, filename)
+		if filler != nil {
+			return filler.Fill(d, filename)
+		} else {
+			return Object{}, errors.New(filename)
+		}
 	}
 
 	defer f.Close()
