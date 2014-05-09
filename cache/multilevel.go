@@ -1,5 +1,7 @@
 package cache
 
+import "errors"
+
 // MultiLevel is a simple abstraction to automatically manage multiple levels of caching.
 type MultiLevel []Cache
 
@@ -9,7 +11,7 @@ func (m MultiLevel) Get(path string, filler Filler) (obj Object, err error) {
 	foundLevel := -1
 	for i, level := range m {
 		obj, err = level.Get(path, nil)
-		if err != nil {
+		if err == nil {
 			// Found the object, so no need to look further.
 			foundLevel = i
 			break
@@ -17,9 +19,14 @@ func (m MultiLevel) Get(path string, filler Filler) (obj Object, err error) {
 	}
 
 	if foundLevel == -1 {
-		// The object was not found anywhere. Go to the Filler.
-		obj, err = filler.Fill(m, path)
-		return
+		if filler != nil {
+			// The object was not found anywhere. Go to the Filler.
+			obj, err = filler.Fill(m, path)
+			return
+		} else {
+			err = errors.New("Object not found")
+			return
+		}
 	}
 
 	// Add the object to all the upper-level caches that did not have the object.
