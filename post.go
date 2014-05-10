@@ -3,10 +3,13 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/russross/blackfriday"
 	"os"
-	"path/filepath"
+	"path"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -97,22 +100,91 @@ func (p *Post) HTMLContent() []byte {
 }
 
 func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
-	postList := make(PostList, 1)
-	err := filepath.Walk(postPath,
-		func(filePath string, info os.FileInfo, err error) error {
-			if info.IsDir() {
-				return nil
-			}
-			newPost, err := NewPost(filePath, readContent)
-			if err != nil {
-				postList = append(postList, newPost)
-			}
-			return nil
-		})
-	return postList, err
+	dir, err := os.Open(postPath)
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := dir.Readdir(0)
+	if err != nil {
+		return nil, err
+	}
+
+	postList := make(PostList, 0, len(files))
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		newPost, err := NewPost(path.Join(postPath, file.Name()), readContent)
+		if err == nil {
+			postList = append(postList, newPost)
+		}
+		// else some logging?
+	}
+
+	return postList, nil
 }
 
-// Less compares two PostH objects in a PostList by date.
+func PreviousMonthDir(postBase string, current time.Time) (time.Time, error) {
+	// Get the post directory
+	postDir, err := os.Open(postBase)
+	if err != nil {
+		return time.Time{}, err
+	}
+	postDirStat, err := postDir.Stat()
+	if err != nil || !postDirStat.IsDir() {
+		return time.Time{}, errors.New("Post path is not directory")
+	}
+
+	// Read out the list of year directories.
+	yearDirs, err := postDir.Readdir(0)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	startMonth := current.Month() - 1
+	year := current.Year()
+
+	// Convert them all to ints.
+	yearInts := make(sort.IntSlice, 0, len(yearDirs))
+	for _, y := range yearDirs {
+		if !y.IsDir() {
+			continue
+		}
+
+		yearInt, err := strconv.Atoi(y.Name())
+		if err != nil {
+			continue
+		}
+
+		if yearInt <= year {
+			// Add all years that are less than or equal to the current one.
+			yearInts = append(yearInts, yearInt)
+		}
+	}
+	// Reverse sort so we start with the most recent year.
+	sort.Sort(sort.Reverse(yearInts))
+
+	for _, year = range yearInts {
+		for month := startMonth; month > 0; month-- {
+			monthPath := PostPath(postBase, year, month)
+			stat, err := os.Stat(monthPath)
+			if err == nil && stat.IsDir() {
+				return time.Date(year, month, 1, 1, 1, 1, 1, time.UTC), nil
+			}
+		}
+		// Going into the previous year, always start with December.
+		startMonth = time.December
+	}
+
+	return time.Time{}, os.ErrNotExist
+}
+
+func PostPath(base string, year int, month time.Month) string {
+	return path.Join(base, strconv.Itoa(year), fmt.Sprintf("%02d", int(month)))
+}
+
 func (l PostList) Less(i, j int) bool {
 	return l[i].Timestamp.Before(l[j].Timestamp)
 }

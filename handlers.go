@@ -50,7 +50,7 @@ func postHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath = determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, generatePostPage, urlParams})
+		PageSpec{globalData, false, generatePostPage, urlParams})
 	if err != nil {
 		// TODO Handle err
 		return
@@ -75,7 +75,7 @@ func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath = determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, generateArchivePage, urlParams})
+		PageSpec{globalData, false, generateArchivePage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -91,7 +91,7 @@ func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath = determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, generateTagsPage, urlParams})
+		PageSpec{globalData, false, generateTagsPage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -107,7 +107,7 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := determineCompression(w, r, filename)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, generateIndexPage, urlParams})
+		PageSpec{globalData, false, generateIndexPage, urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return

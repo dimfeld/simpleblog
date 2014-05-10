@@ -10,12 +10,13 @@ import (
 
 type GlobalData struct {
 	// General cache
-	cache    cachePkg.Cache
-	memCache cachePkg.Cache
-	logger   log.Logger
-	postsDir string
-	dataDir  http.Dir
-	tagsPath string
+	cache      cachePkg.Cache
+	memCache   cachePkg.Cache
+	logger     log.Logger
+	postsDir   string
+	dataDir    http.Dir
+	tagsPath   string
+	indexPosts int
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)

@@ -78,7 +78,8 @@ func (m *memoryCache) Get(path string, filler Filler) (item Object, err error) {
 }
 
 // Trim memory usage of the array. Right now this just clears all the data, which is obviously
-// non-optimal. This function assumes that we already have a write lock.
+// non-optimal. Once the LRU list is written, it will use that instead.
+// This function assumes that we already have a write lock.
 func (m *memoryCache) trim() {
 	m.object = make(map[string]Object)
 	m.memoryUsage = 0
