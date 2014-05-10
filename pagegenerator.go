@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/dimfeld/simpleblog/cache"
+	"github.com/dimfeld/gocache"
 	"os"
 	"path"
 	"sort"
@@ -32,16 +32,16 @@ type TemplateData struct {
 	Archives ArchiveSpecList
 }
 
-func (ps PageSpec) Fill(cacheObj cache.Cache, path string) (cache.Object, error) {
+func (ps PageSpec) Fill(cacheObj gocache.Cache, path string) (gocache.Object, error) {
 	data, err := ps.generator(ps.globalData, ps.params)
 	if err != nil {
-		return cache.Object{}, err
+		return gocache.Object{}, err
 	}
 
 	// TODO Actually do templating here.
 	output := data[0].Content
 
-	uncompressed, compressed, err := cache.CompressAndSet(cacheObj, path, output, time.Now())
+	uncompressed, compressed, err := gocache.CompressAndSet(cacheObj, path, output, time.Now())
 	if strings.HasSuffix(path, ".gz") {
 		return compressed, err
 	} else {

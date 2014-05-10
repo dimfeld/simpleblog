@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"github.com/dimfeld/simpleblog/cache"
+	"github.com/dimfeld/gocache"
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"path"
@@ -157,7 +157,7 @@ func setStaticAssetHeaders(w http.ResponseWriter) {
 }
 
 // sendData returns a file to the user, handling relevant headers in the request and response.
-func sendData(w http.ResponseWriter, r *http.Request, name string, object cache.Object) {
+func sendData(w http.ResponseWriter, r *http.Request, name string, object gocache.Object) {
 	header := w.Header()
 	header.Add("Vary", "Accept-Encoding")
 	// 30 days in seconds
@@ -177,7 +177,7 @@ type DirectCacheFiller struct {
 	canCompress bool
 }
 
-func (d DirectCacheFiller) Fill(cacheObj cache.Cache, pathStr string) (cache.Object, error) {
+func (d DirectCacheFiller) Fill(cacheObj gocache.Cache, pathStr string) (gocache.Object, error) {
 	compressed := false
 	if d.canCompress && strings.HasSuffix(pathStr, ".gz") {
 		// Get the path without .gz at the end since we start with the uncompresed version.
@@ -187,30 +187,30 @@ func (d DirectCacheFiller) Fill(cacheObj cache.Cache, pathStr string) (cache.Obj
 
 	f, err := d.globalData.dataDir.Open(pathStr)
 	if err != nil {
-		return cache.Object{}, err
+		return gocache.Object{}, err
 	}
 	defer f.Close()
 
 	fstat, err := f.Stat()
 	if err != nil {
-		return cache.Object{}, err
+		return gocache.Object{}, err
 	}
 
 	data := make([]byte, fstat.Size())
 	_, err = f.Read(data)
 	if err != nil {
-		return cache.Object{}, err
+		return gocache.Object{}, err
 	}
 
 	if d.canCompress {
-		compressedObj, uncompressedObj, err := cache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
+		compressedObj, uncompressedObj, err := gocache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
 		if compressed {
 			return compressedObj, err
 		} else {
 			return uncompressedObj, err
 		}
 	} else {
-		obj := cache.Object{Data: data, ModTime: fstat.ModTime()}
+		obj := gocache.Object{Data: data, ModTime: fstat.ModTime()}
 		cacheObj.Set(pathStr, obj)
 		return obj, nil
 	}

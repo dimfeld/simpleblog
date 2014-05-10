@@ -1,7 +1,7 @@
 package main
 
 import (
-	cachePkg "github.com/dimfeld/simpleblog/cache"
+	"github.com/dimfeld/gocache"
 	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
@@ -10,8 +10,8 @@ import (
 
 type GlobalData struct {
 	// General cache
-	cache      cachePkg.Cache
-	memCache   cachePkg.Cache
+	cache      gocache.Cache
+	memCache   gocache.Cache
 	logger     log.Logger
 	postsDir   string
 	dataDir    http.Dir
@@ -33,30 +33,31 @@ func main() {
 	dataDir := http.Dir("./data")
 	postsDir := "./posts"
 
-	diskCache := cachePkg.NewDiskCache(cacheDir)
+	diskCache := gocache.NewDiskCache(cacheDir)
 	diskCache.ScanExisting()
 
 	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
 	largeObjectLimit := 8 * 1024 * 1024
-	largeMemCache := cachePkg.NewMemoryCache(64*1024*1024, largeObjectLimit)
+	largeMemCache := gocache.NewMemoryCache(64*1024*1024, largeObjectLimit)
 	// Small memory cache uses 16 MiB at most, with the largest object being 16KiB.
 	smallObjectLimit := 16 * 1024
-	smallMemCache := cachePkg.NewMemoryCache(16*1024*1024, smallObjectLimit)
+	smallMemCache := gocache.NewMemoryCache(16*1024*1024, smallObjectLimit)
 
 	// Create a split cache, putting all objects smaller than 16 KiB into the small cache.
 	// This split cache prevents a few large objects from evicting all the smaller objects.
-	memCache := cachePkg.NewSplitSize(
-		cachePkg.SplitSizeChild{MaxSize: smallObjectLimit, Cache: smallMemCache},
-		cachePkg.SplitSizeChild{MaxSize: largeObjectLimit, Cache: largeMemCache})
+	memCache := gocache.NewSplitSize(
+		gocache.SplitSizeChild{MaxSize: smallObjectLimit, Cache: smallMemCache},
+		gocache.SplitSizeChild{MaxSize: largeObjectLimit, Cache: largeMemCache})
 
-	multiLevelCache := cachePkg.MultiLevel{0: memCache, 1: diskCache}
+	multiLevelCache := gocache.MultiLevel{0: memCache, 1: diskCache}
 
 	globalData := &GlobalData{
-		cache:    multiLevelCache,
-		memCache: memCache,
-		dataDir:  dataDir,
-		postsDir: postsDir,
-		tagsPath: filepath.Join(cacheDir, "tags.json"),
+		cache:      multiLevelCache,
+		memCache:   memCache,
+		dataDir:    dataDir,
+		postsDir:   postsDir,
+		tagsPath:   filepath.Join(cacheDir, "tags.json"),
+		indexPosts: 15,
 	}
 
 	watchFiles(globalData)
