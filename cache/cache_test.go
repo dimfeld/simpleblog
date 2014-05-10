@@ -43,7 +43,7 @@ func (d DummyCache) Del(path string) {
 }
 
 func unzip(compressed []byte) ([]byte, error) {
-	compressedBuf := bytes.NewBuffer(compressed)
+	compressedBuf := bytes.NewReader(compressed)
 	ungz, err := gzip.NewReader(compressedBuf)
 	if err != nil {
 		return nil, err
