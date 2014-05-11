@@ -1,22 +1,31 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"github.com/dimfeld/gocache"
 	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 )
 
+var (
+	logger *log.Logger
+)
+
 type GlobalData struct {
-	// General cache
-	cache      gocache.Cache
-	memCache   gocache.Cache
-	logger     log.Logger
+	// Configuration Data
+	indexPosts int
 	postsDir   string
 	dataDir    http.Dir
 	tagsPath   string
-	indexPosts int
+
+	// General cache
+	cache    gocache.Cache
+	memCache gocache.Cache
+	archive  ArchiveSpecList
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
@@ -32,6 +41,23 @@ func main() {
 	cacheDir := "./cache"
 	dataDir := http.Dir("./data")
 	postsDir := "./posts"
+	logFilename := "/var/log/simpleBlog"
+	logPrefix := "SimpleBlog"
+
+	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
+	if err != nil {
+		fmt.Println("Could not open log file", logFilename)
+		os.Exit(1)
+	}
+	// Overkill?
+	logBuffer := bufio.NewWriter(logFile)
+
+	defer func() {
+		logBuffer.Flush()
+		logFile.Close()
+	}()
+
+	logger = log.New(logBuffer, logPrefix, log.LstdFlags)
 
 	diskCache := gocache.NewDiskCache(cacheDir)
 	diskCache.ScanExisting()
@@ -72,7 +98,7 @@ func main() {
 	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
 	router.GET("/images/*file", handlerWrapper(staticNoCompressHandler, globalData))
 	router.GET("/assets/*file", handlerWrapper(staticCompressHandler, globalData))
-	router.GET("/favicon.ico", handlerWrapper(staticCompressHandler, globalData))
+	router.GET("/:page", handlerWrapper(pageHandler, globalData))
 
 	http.ListenAndServe(":8080", router)
 }

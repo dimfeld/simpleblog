@@ -33,13 +33,18 @@ type TemplateData struct {
 }
 
 func (ps PageSpec) Fill(cacheObj gocache.Cache, path string) (gocache.Object, error) {
-	data, err := ps.generator(ps.globalData, ps.params)
+	posts, err := ps.generator(ps.globalData, ps.params)
 	if err != nil {
 		return gocache.Object{}, err
 	}
 
+	if len(posts) == 0 {
+		// No error, but an empty post list means that no matching file was found.
+		return gocache.Object{}, os.ErrNotExist
+	}
+
 	// TODO Actually do templating here.
-	output := data[0].Content
+	output := posts[0].Content
 
 	uncompressed, compressed, err := gocache.CompressAndSet(cacheObj, path, output, time.Now())
 	if strings.HasSuffix(path, ".gz") {
@@ -65,11 +70,12 @@ func generatePostPage(globalData *GlobalData, params map[string]string) (PostLis
 func generateArchivePage(globalData *GlobalData, params map[string]string) (PostList, error) {
 	archivePath := path.Join(globalData.postsDir, params["year"], params["month"])
 	posts, err := LoadPostsFromPath(archivePath, true)
-	sort.Sort(posts)
 	if err != nil {
-		// 404 error
+		return nil, err
 	}
-	return nil, nil
+	sort.Sort(posts)
+
+	return posts, nil
 }
 
 func generateTagsPage(globalData *GlobalData, params map[string]string) (PostList, error) {
@@ -77,34 +83,30 @@ func generateTagsPage(globalData *GlobalData, params map[string]string) (PostLis
 }
 
 func generateIndexPage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	current := time.Now()
-
-	postPath := PostPath(globalData.postsDir, current.Year(), current.Month())
-	postList, err := LoadPostsFromPath(postPath, true)
-	if err != nil {
-		return nil, err
-	}
-	monthPosts := postList
-
-	for len(postList) < globalData.indexPosts {
-		current, err = PreviousMonthDir(globalData.postsDir, monthPosts[0].Timestamp)
-		postPath = PostPath(globalData.postsDir, current.Year(), current.Month())
+	if globalData.archive == nil {
+		archive, err := NewArchiveSpecList(globalData.postsDir)
 		if err != nil {
-			if os.IsNotExist(err) {
-				// We're out of posts.
-				break
-			} else {
-				// Some other error
-				return nil, err
-			}
+			return nil, err
 		}
 
-		monthPosts, err = LoadPostsFromPath(postPath, true)
+		globalData.archive = archive
+	}
+
+	postList := make(PostList, 0, globalData.indexPosts)
+
+	for _, current := range globalData.archive {
+		postPath := PostPath(globalData.postsDir, current.Year(), current.Month())
+		monthPosts, err := LoadPostsFromPath(postPath, true)
 		if err != nil {
 			return nil, err
 		}
 
 		postList = append(postList, monthPosts...)
+
+		// We have enough posts.
+		if len(postList) >= globalData.indexPosts {
+			break
+		}
 	}
 
 	sort.Sort(sort.Reverse(postList))
@@ -114,6 +116,16 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 	}
 
 	return nil, nil
+}
+
+func generateCustomPage(globalData *GlobalData, params map[string]string) (PostList, error) {
+	pagePath := path.Join(globalData.postsDir, "page", params["page"])
+	post, err := NewPost(pagePath, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return PostList{post}, nil
 }
 
 func (l ArchiveSpecList) Less(i, j int) bool {
@@ -130,9 +142,17 @@ func (l ArchiveSpecList) Swap(i, j int) {
 }
 
 func (a ArchiveSpec) Href() string {
-	return fmt.Sprintf("/%04d/%02d", time.Time(a).Year(), time.Time(a).Month())
+	return fmt.Sprintf("/%04d/%02d", a.Year(), a.Month())
 }
 
 func (a ArchiveSpec) Text() string {
 	return time.Time(a).Format("Jan 2006")
+}
+
+func (a ArchiveSpec) Month() time.Month {
+	return time.Time(a).Month()
+}
+
+func (a ArchiveSpec) Year() int {
+	return time.Time(a).Year()
 }

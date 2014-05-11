@@ -5,6 +5,7 @@ import (
 	"github.com/dimfeld/gocache"
 	"github.com/julienschmidt/httprouter"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -13,11 +14,19 @@ import (
 func error404(w http.ResponseWriter, r *http.Request) {
 	// TODO Real error page here.
 	http.NotFound(w, r)
-	return
+}
+
+func error500(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
-	error404(w, r)
+	if os.IsNotExist(err) {
+		error404(w, r)
+	} else {
+		logger.Println(err)
+		error500(w, r)
+	}
 }
 
 // determineCompression figures out if compression can be used, and adds a .gz extension so that
@@ -52,7 +61,7 @@ func postHandler(globalData *GlobalData, w http.ResponseWriter,
 	data, err := globalData.cache.Get(filePath,
 		PageSpec{globalData, false, generatePostPage, urlParams})
 	if err != nil {
-		// TODO Handle err
+		handleError(w, r, err)
 		return
 	}
 
@@ -114,6 +123,28 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	}
 
 	sendData(w, r, filename, data)
+}
+
+func pageHandler(globalData *GlobalData, w http.ResponseWriter,
+	r *http.Request, urlParams map[string]string) {
+
+	page := urlParams["page"]
+	if page == "favicon.ico" {
+		// This is due to httprouter not allowing two routes that match on the same thing.
+		urlParams["file"] = "favicon.ico"
+		staticCompressHandler(globalData, w, r, urlParams)
+		return
+	}
+
+	filePath := determineCompression(w, r, page)
+	object, err := globalData.cache.Get(filePath,
+		PageSpec{globalData, true, generateCustomPage, urlParams})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	sendData(w, r, urlParams["page"], object)
 }
 
 func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,

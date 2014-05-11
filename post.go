@@ -8,7 +8,7 @@ import (
 	"github.com/russross/blackfriday"
 	"os"
 	"path"
-	"sort"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -100,85 +100,91 @@ func (p *Post) HTMLContent() []byte {
 }
 
 func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
-	dir, err := os.Open(postPath)
+	var outerErr error = nil
+	postList := make(PostList, 0, 15)
+	err := filepath.Walk(postPath,
+		func(filePath string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			newPost, err := NewPost(filePath, readContent)
+			if err == nil {
+				postList = append(postList, newPost)
+			} else {
+				logger.Printf("Failed parsing post at %s: %s", filePath, err)
+				if outerErr == nil {
+					// Pass the error outward.
+					outerErr = err
+				}
+			}
+			return nil
+		})
 	if err != nil {
 		return nil, err
 	}
 
-	files, err := dir.Readdir(0)
-	if err != nil {
-		return nil, err
-	}
-
-	postList := make(PostList, 0, len(files))
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		newPost, err := NewPost(path.Join(postPath, file.Name()), readContent)
-		if err == nil {
-			postList = append(postList, newPost)
-		}
-		// else some logging?
-	}
-
-	return postList, nil
+	return postList, outerErr
 }
 
-func PreviousMonthDir(postBase string, current time.Time) (time.Time, error) {
-	// Get the post directory
+func NewArchiveSpecList(postBase string) (ArchiveSpecList, error) {
+	// Get the post directory.
 	postDir, err := os.Open(postBase)
 	if err != nil {
-		return time.Time{}, err
+		return nil, err
 	}
 	postDirStat, err := postDir.Stat()
 	if err != nil || !postDirStat.IsDir() {
-		return time.Time{}, errors.New("Post path is not directory")
+		return nil, errors.New("Post path is not directory")
 	}
 
 	// Read out the list of year directories.
 	yearDirs, err := postDir.Readdir(0)
 	if err != nil {
-		return time.Time{}, err
+		return nil, err
 	}
 
-	startMonth := current.Month() - 1
-	year := current.Year()
+	list := make(ArchiveSpecList, 0)
 
-	// Convert them all to ints.
-	yearInts := make(sort.IntSlice, 0, len(yearDirs))
-	for _, y := range yearDirs {
-		if !y.IsDir() {
+	for _, yearDirStat := range yearDirs {
+		if !yearDirStat.IsDir() {
 			continue
 		}
 
-		yearInt, err := strconv.Atoi(y.Name())
+		yearDirName := yearDirStat.Name()
+		yearInt, err := strconv.Atoi(yearDirName)
 		if err != nil {
+			// This isn't a numeric path. Ignore it.
 			continue
 		}
 
-		if yearInt <= year {
-			// Add all years that are less than or equal to the current one.
-			yearInts = append(yearInts, yearInt)
+		yearDirPath := path.Join(postBase, yearDirName)
+		yearDir, err := os.Open(yearDirPath)
+		if err != nil {
+			// Probably the directory was deleted. Log and move on.
+			logger.Println("NewArchiveSpecList: Failed to open", yearDirPath)
+			continue
 		}
-	}
-	// Reverse sort so we start with the most recent year.
-	sort.Sort(sort.Reverse(yearInts))
 
-	for _, year = range yearInts {
-		for month := startMonth; month > 0; month-- {
-			monthPath := PostPath(postBase, year, month)
-			stat, err := os.Stat(monthPath)
-			if err == nil && stat.IsDir() {
-				return time.Date(year, month, 1, 1, 1, 1, 1, time.UTC), nil
+		monthDirs, err := yearDir.Readdir(0)
+		if err != nil {
+			logger.Println("NewArchiveSpecList: Failed to read files from ", yearDirPath)
+		}
+
+		for _, monthDirSpec := range monthDirs {
+			if !monthDirSpec.IsDir() {
+				continue
 			}
-		}
-		// Going into the previous year, always start with December.
-		startMonth = time.December
-	}
+			monthInt, err := strconv.Atoi(monthDirSpec.Name())
+			if err != nil {
+				// This isn't a numeric path. Ignore it.
+				continue
+			}
 
-	return time.Time{}, os.ErrNotExist
+			spec := time.Date(yearInt, time.Month(monthInt), 1, 1, 1, 1, 1, time.UTC)
+			list = append(list, ArchiveSpec(spec))
+		}
+	}
+	return list, nil
 }
 
 func PostPath(base string, year int, month time.Month) string {
