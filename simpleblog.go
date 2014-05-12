@@ -38,10 +38,10 @@ func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httproute
 
 func main() {
 	// TODO Load these from configuration
-	cacheDir := "./cache"
-	dataDir := http.Dir("./data")
-	postsDir := "./posts"
-	logFilename := "/var/log/simpleBlog"
+	cacheDir := filepath.Abs("./cache")
+	dataDir := http.Dir(filepath.Abs("./data"))
+	postsDir := filepath.Abs("./posts")
+	logFilename := filepath.Abs("/var/log/simpleBlog")
 	logPrefix := "SimpleBlog"
 
 	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
@@ -60,7 +60,6 @@ func main() {
 	logger = log.New(logBuffer, logPrefix, log.LstdFlags)
 
 	diskCache := gocache.NewDiskCache(cacheDir)
-	diskCache.ScanExisting()
 
 	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
 	largeObjectLimit := 8 * 1024 * 1024
