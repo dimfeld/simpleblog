@@ -38,10 +38,11 @@ func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httproute
 
 func main() {
 	// TODO Load these from configuration
-	cacheDir := filepath.Abs("./cache")
-	dataDir := http.Dir(filepath.Abs("./data"))
-	postsDir := filepath.Abs("./posts")
-	logFilename := filepath.Abs("/var/log/simpleBlog")
+	cacheDir, _ := filepath.Abs("cache")
+	dataDirStr, _ := filepath.Abs("data")
+	dataDir := http.Dir(dataDirStr)
+	postsDir, _ := filepath.Abs("posts")
+	logFilename, _ := filepath.Abs("/var/log/simpleBlog")
 	logPrefix := "SimpleBlog"
 
 	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
