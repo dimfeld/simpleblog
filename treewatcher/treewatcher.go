@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 )
 
-// TreeWatcher is a wrapper around fsnotify.Watcher that monitors all directories
-// within a tree, and automatically adds watches on newly created directories under
-// the tree. All events are passed to the caller.
+// TreeWatcher is a wrapper around fsnotify.Watcher that monitors all
+// directories within a tree, and automatically adds watches on newly created
+// directories under the tree. All events from the fsnotify.Watcher are passed
+// through to the TreeWatcher's channels.
 type TreeWatcher struct {
 	Event chan *fsnotify.FileEvent
 	Error chan error
@@ -21,18 +22,17 @@ func (tw *TreeWatcher) fsNotifyHandler() {
 	for {
 		select {
 		case event := <-tw.watcher.Event:
-			tw.Event <- event
-
+			// Watch the tree before sending the event, so that the client
+			// won't miss any changes between when the channel send happens
+			// and when the watch starts.
 			if event.IsCreate() {
 				stat, err := os.Stat(event.Name)
-				if err != nil {
-					continue
-				}
-
-				if stat.IsDir() {
+				if err == nil && stat.IsDir() {
 					tw.WatchTree(event.Name)
 				}
 			}
+
+			tw.Event <- event
 		case err := <-tw.watcher.Error:
 			tw.Error <- err
 
