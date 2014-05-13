@@ -1,0 +1,48 @@
+{{ /* Sample template for simpleblog. Note that if you modify this one, the tests will fail. 
+      The actual application uses the main.tmpl.html from the data directory. */ }}
+
+<html>
+<body>
+<h1 name="header">Header</h1>
+<div name="content">
+	{{ /* Everything is either a list of posts, or a single post stored in .Page. A more general
+	      implementation would be able to use an arbitrary subtemplate. */ }}
+	{{range .Posts }}
+    <div class="post">
+		<div class="title">{{.Title}}<div>
+		<div class="permalink">{{.SourcePath}}</div>
+		<div class="time">{{.Timestamp}}</div>
+		<div class="content">{{.HTMLContent}}</div>
+		<div class="tags">
+			<ul>
+			   {{range .Tags}}
+			   <li>{{.}}</li>
+			   {{end}}
+		   </ul>
+		</div>
+	</div>
+    {{else}}
+    <div class="post">
+		<div class="title">{{.Page.Title}}<div>
+		<div class="permalink">{{.Page.SourcePath}}</div>
+		<div class="content">{{.Page.HTMLContent}}</div>
+	</div>
+    {{end}}
+</div>
+<div name="tags">
+	<ul>
+		{{range .Tags}}
+		<li><a href="/tag/{{.}}">{{.}}</a></li>
+		{{end}}
+	</ul>
+</div>
+<div name="archives">
+	<ul>
+   {{range .Archives }}
+   <li class="archive"><a href="{{.Href}}">{{.String}}</a></li>
+   {{end}}
+   </ul>
+</div>
+<h1 name="footer">Footer</h1>
+</body>
+</html>
