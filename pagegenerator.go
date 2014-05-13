@@ -28,7 +28,7 @@ type TemplateData struct {
 	// Set Posts to make a list of posts. A custom page should set Page.
 	Posts    []*Post
 	Page     *Post
-	Tags     []string
+	Tags     TagPopularity
 	Archives ArchiveSpecList
 }
 
@@ -43,7 +43,15 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, path string) (gocache.Object, er
 		return gocache.Object{}, os.ErrNotExist
 	}
 
-	// TODO Actually do templating here.
+	templateData := TemplateData{}
+	if ps.customPage {
+		templateData.Page = posts[0]
+	} else {
+		templateData.Posts = posts
+	}
+	templateData.Archives = ps.globalData.archive
+	tags := NewTags(ps.globalData.tagsPath, ps.globalData.postsDir)
+	templateData.Tags = tags.TagsByPopularity()
 	output := posts[0].Content
 
 	uncompressed, compressed, err := gocache.CompressAndSet(cacheObj, path, output, time.Now())
@@ -61,8 +69,6 @@ func generatePostPage(globalData *GlobalData, params map[string]string) (PostLis
 		return nil, err
 	}
 	postList := PostList{post}
-
-	// Do templating
 
 	return postList, nil
 }
@@ -109,6 +115,7 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 		}
 	}
 
+	// Sort posts, starting with the most recent.
 	sort.Sort(sort.Reverse(postList))
 
 	if len(postList) > globalData.indexPosts {
@@ -133,7 +140,7 @@ func (l ArchiveSpecList) Less(i, j int) bool {
 	return time.Time(l[i]).After(time.Time(l[j]))
 }
 
-func (l ArchiveSpecList) Len(i, j int) int {
+func (l ArchiveSpecList) Len() int {
 	return len(l)
 }
 
@@ -145,7 +152,7 @@ func (a ArchiveSpec) Href() string {
 	return fmt.Sprintf("/%04d/%02d", a.Year(), a.Month())
 }
 
-func (a ArchiveSpec) Text() string {
+func (a ArchiveSpec) String() string {
 	return time.Time(a).Format("Jan 2006")
 }
 
