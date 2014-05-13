@@ -29,14 +29,14 @@ func (p *Post) readHeader(reader *bufio.Reader) (err error) {
 	if err != nil {
 		return
 	}
-	p.Title = string(line[0 : len(line)-1])
+	p.Title = strings.TrimSpace(string(line[0 : len(line)-1]))
 
 	line, err = reader.ReadString('\n')
 	if err != nil {
 		return
 	}
 
-	p.Timestamp, err = time.Parse(time.RFC822, line[0:len(line)-1])
+	p.Timestamp, err = time.Parse("1/2/06 3:04PM MST", strings.TrimSpace(line[0:len(line)-1]))
 	if err != nil {
 		return
 	}
@@ -81,7 +81,10 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 
 	reader := bufio.NewReader(f)
 
-	p.readHeader(reader)
+	err = p.readHeader(reader)
+	if err != nil {
+		return
+	}
 
 	if readContent {
 		buf := &bytes.Buffer{}
@@ -167,7 +170,7 @@ func NewArchiveSpecList(postBase string) (ArchiveSpecList, error) {
 
 		monthDirs, err := yearDir.Readdir(0)
 		if err != nil {
-			logger.Println("NewArchiveSpecList: Failed to read files from ", yearDirPath)
+			logger.Println("NewArchiveSpecList: Failed to read files from", yearDirPath)
 		}
 
 		for _, monthDirSpec := range monthDirs {
