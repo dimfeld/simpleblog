@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/dimfeld/simpleblog/treewatcher"
 	"github.com/howeyc/fsnotify"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -46,6 +47,7 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	// Same for when a template is updated since that affects every page.
 	if isPost || strings.HasSuffix(fullPath, "tmpl.html") {
 		globalData.cache.Del("*")
+		os.Remove(globalData.tagsPath)
 	} else {
 		// It's some other data, so just invalidate that one object from the cache.
 		globalData.cache.Del(cachePath)
