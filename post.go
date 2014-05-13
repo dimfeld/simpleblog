@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const PostTimeFormat string = "1/2/06 3:04PM MST"
+
 type PostList []*Post
 
 type Post struct {
@@ -36,7 +38,7 @@ func (p *Post) readHeader(reader *bufio.Reader) (err error) {
 		return
 	}
 
-	p.Timestamp, err = time.Parse("1/2/06 3:04PM MST", strings.TrimSpace(line[0:len(line)-1]))
+	p.Timestamp, err = time.Parse(PostTimeFormat, strings.TrimSpace(line[0:len(line)-1]))
 	if err != nil {
 		return
 	}
@@ -107,6 +109,9 @@ func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 	postList := make(PostList, 0, 15)
 	err := filepath.Walk(postPath,
 		func(filePath string, info os.FileInfo, err error) error {
+			if info == nil {
+				return os.ErrNotExist
+			}
 			if info.IsDir() {
 				return nil
 			}

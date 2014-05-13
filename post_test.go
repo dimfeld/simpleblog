@@ -2,14 +2,17 @@ package main
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
+	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-var testContent string = `# This is some content
+const testContent string = `# This is some content
 And some more content
 
 ## It was the best of times.
@@ -175,7 +178,7 @@ func TestNewPost(t *testing.T) {
 	titles := []string{"Valid Title", " Extra spaces ", "", "MISSING"}
 	dates := []string{"10/12/14 4:15PM MST", "6/4/12 3:57AM CDT  ",
 		"", "MISSING"}
-	tags := []string{"onetag", "tag1, tag 2", "a long tag", "tag 1, tag2, tag 3", "", "MISSING"}
+	tags := []string{"onetag", "tag1,tag 2", "a long tag", "tag 1, tag2, tag 3", "", "MISSING"}
 	contents := []string{testContent, "", "MISSING"}
 	includePostHeaderLine := []bool{true, false}
 
@@ -193,5 +196,220 @@ func TestNewPost(t *testing.T) {
 				}
 			}
 		}
+	}
+
+	f, err := ioutil.TempFile("", "temppost")
+	if err != nil {
+		t.Fatal("Failed to create temp file")
+	}
+	filename := f.Name()
+	// Make the file unreadable.
+	f.Chmod(0200)
+	f.Close()
+	defer os.Remove(filename)
+
+	_, err = NewPost(filename, true)
+	if err == nil {
+		t.Error("No error returned when reading unreadable post")
+	}
+
+}
+
+var testPosts []*Post
+
+func createTestPosts(t *testing.T) {
+	// Can't call time.Parse in a static initializer, so we make this here.
+	testPosts = make([]*Post, 3)
+
+	postTime, err := time.Parse(PostTimeFormat, "1/2/14 4:15PM MST")
+	if err != nil {
+		t.Fatal("Invalid time in createTestPosts #0")
+	}
+	testPosts[0] = &Post{"2014/02/test-post1",
+		"TestPost1",
+		postTime,
+		[]string{"tag1", "tag2"},
+		[]byte("content")}
+
+	postTime, err = time.Parse(PostTimeFormat, "1/3/14 4:15PM MST")
+	if err != nil {
+		t.Fatal("Invalid time in createTestPosts #0")
+	}
+	testPosts[1] = &Post{"2014/02/test-post2",
+		"TestPost2",
+		postTime,
+		[]string{"tag1"},
+		[]byte("content")}
+
+	postTime, err = time.Parse(PostTimeFormat, "1/2/12 4:15PM MST")
+	if err != nil {
+		t.Fatal("Invalid time in createTestPosts #0")
+	}
+	testPosts[2] = &Post{"2012/02/test-post3",
+		"TestPost3",
+		postTime,
+		[]string{"tag2"},
+		[]byte("content")}
+}
+
+func writePost(t *testing.T, postPath string, post *Post) {
+	dir, _ := path.Split(post.SourcePath)
+	dir = path.Join(postPath, dir)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		t.Fatalf("Error making directory %s: %s", dir, err)
+	}
+
+	fullPath := path.Join(postPath, post.SourcePath)
+	f, err := os.Create(fullPath)
+	if err != nil {
+		t.Fatalf("Error creating %s: %s", fullPath, err)
+	}
+	defer f.Close()
+
+	f.WriteString(post.Title + "\n")
+	postTime := post.Timestamp.Format("1/2/06 3:04PM MST")
+	f.WriteString(postTime + "\n")
+	f.WriteString(strings.Join(post.Tags, ",") + "\n\n")
+	f.Write(post.Content)
+}
+
+func createPostTree(t *testing.T) (dirPath string) {
+	createTestPosts(t)
+	dirPath, err := ioutil.TempDir("", "testposts")
+	if err != nil {
+		t.Fatal("Could not create temporary directory:", err)
+	}
+
+	for _, post := range testPosts {
+		writePost(t, dirPath, post)
+	}
+
+	return dirPath
+}
+
+type WriteCapturer struct {
+	data [][]byte
+}
+
+func (w *WriteCapturer) Write(data []byte) (n int, err error) {
+	if w.data == nil {
+		w.data = make([][]byte, 0)
+	}
+	w.data = append(w.data, data)
+	return len(data), nil
+}
+
+func TestLoadPostsFromPath(t *testing.T) {
+	writeCapturer := &WriteCapturer{}
+	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
+	dir := createPostTree(t)
+	defer os.RemoveAll(dir)
+
+	checkPostList := func(postList PostList, expected []string) {
+		if len(postList) != len(expected) {
+			t.Errorf("Expected %d posts but found %d",
+				len(expected), len(postList))
+		}
+
+		for i, exp := range expected {
+			if postList[i].SourcePath != exp {
+				t.Errorf("Expected post 0 to be %s, saw %s",
+					exp, postList[i].SourcePath)
+			}
+		}
+
+	}
+
+	t.Log("Loading 3 valid posts")
+	expectedSorted := []string{"2012/02/test-post3",
+		"2014/02/test-post1",
+		"2014/02/test-post2"}
+	for i, val := range expectedSorted {
+		expectedSorted[i] = path.Join(dir, val)
+	}
+
+	postList, err := LoadPostsFromPath(dir, true)
+	sort.Sort(postList)
+
+	checkPostList(postList, expectedSorted)
+
+	t.Log("Testing with 3 valid posts and 1 invalid post")
+	ioutil.WriteFile(path.Join(dir, "2012/02/invalidpost"), []byte("Invalid post"), 0666)
+	postList, err = LoadPostsFromPath(dir, true)
+	if err == nil {
+		t.Error("LoadPostsFromPath did not propagate error from NewPost")
+	}
+	if postList == nil || len(postList) != 3 {
+		t.Error("LoadPostsFromPath did not load valid posts because of one invalid post.")
+	}
+	sort.Sort(postList)
+	checkPostList(postList, expectedSorted)
+	if len(writeCapturer.data) != 1 {
+		t.Errorf("Expected 1 log message, saw %d", len(writeCapturer.data))
+	}
+
+	t.Log("Testing load from invalid path")
+	_, err = LoadPostsFromPath("/jklsdfjklfds hjlksdfj", true)
+	if err == nil {
+		t.Error("No error returned on loading from nonexistent path.")
+	}
+}
+
+func TestArchiveSpecList(t *testing.T) {
+	checkSpecList := func(expected, actual ArchiveSpecList) {
+		if len(expected) != len(actual) {
+			t.Errorf("Expected %d specs but saw %d",
+				len(expected), len(actual))
+			return
+		}
+
+		for i, spec := range expected {
+			if !time.Time(spec).Equal(time.Time(actual[i])) {
+				t.Errorf("Expected spec #%d %s, saw %s",
+					i, spec, actual[i])
+			}
+		}
+	}
+
+	writeCapturer := &WriteCapturer{}
+	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
+
+	dir := createPostTree(t)
+	defer os.RemoveAll(dir)
+
+	expectedSpecList := ArchiveSpecList{
+		ArchiveSpec(time.Date(2014, time.Month(02), 1, 1, 1, 1, 1, time.UTC)),
+		ArchiveSpec(time.Date(2012, time.Month(02), 1, 1, 1, 1, 1, time.UTC)),
+	}
+
+	t.Log("Test normal spec list creation")
+	specList, err := NewArchiveSpecList(dir)
+	if err != nil {
+		t.Error("Error creating spec list")
+	}
+	sort.Sort(specList)
+	checkSpecList(expectedSpecList, specList)
+
+	href := specList[0].Href()
+	if href != "/2014/02" {
+		t.Errorf("Expected href %s, saw %s", "/2014/02", href)
+	}
+
+	text := specList[0].String()
+	if text != "Feb 2014" {
+		t.Errorf("Expected text %s, saw %s", "Feb 2014", "text")
+	}
+
+	t.Log("Test with some non-numeric directories")
+	os.Mkdir(path.Join(dir, "abc"), 0755)
+	os.Mkdir(path.Join(dir, "2012", "abc"), 0755)
+	specList, err = NewArchiveSpecList(dir)
+	sort.Sort(specList)
+	checkSpecList(expectedSpecList, specList)
+
+	_, err = NewArchiveSpecList("/jklsdfnkjlse kslef")
+	if err == nil {
+		t.Error("NewArchiveSpecList did not fail with invalid directory")
 	}
 }
