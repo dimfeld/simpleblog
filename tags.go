@@ -143,7 +143,8 @@ func (tags *Tags) TagsByPopularity() TagPopularity {
 
 func (pop TagPopularity) Less(i, j int) bool {
 	// TODO Sort by count or by title?
-	return pop[i].Count < pop[j].Count
+	// Reverse sort by default.
+	return pop[i].Count > pop[j].Count
 }
 
 func (pop TagPopularity) Len() int {
