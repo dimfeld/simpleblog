@@ -50,7 +50,7 @@ func (tw *TreeWatcher) Close() {
 func (tw *TreeWatcher) WatchTree(path string) {
 	tw.watcher.Watch(path)
 	filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+		if info != nil && info.IsDir() {
 			tw.watcher.Watch(file)
 		}
 		return nil
