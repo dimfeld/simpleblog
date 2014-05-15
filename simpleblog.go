@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/dimfeld/gocache"
-	"github.com/julienschmidt/httprouter"
+	"github.com/dimfeld/httptreemux"
 	"log"
 	"net/http"
 	"os"
@@ -30,9 +30,16 @@ type GlobalData struct {
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
 
-func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httprouter.Handle {
+func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
 		handler(globalData, w, r, urlParams)
+	}
+}
+
+func fileWrapper(handler httptreemux.HandlerFunc, filename string) httptreemux.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
+		urlParams["file"] = filename
+		handler(w, r, urlParams)
 	}
 }
 
@@ -42,7 +49,7 @@ func main() {
 	dataDirStr, _ := filepath.Abs("data")
 	dataDir := http.Dir(dataDirStr)
 	postsDir, _ := filepath.Abs("posts")
-	logFilename, _ := filepath.Abs("/var/log/simpleBlog")
+	logFilename, _ := filepath.Abs("simpleblog.log")
 	logPrefix := "SimpleBlog"
 
 	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
@@ -60,7 +67,10 @@ func main() {
 
 	logger = log.New(logBuffer, logPrefix, log.LstdFlags)
 
-	diskCache := gocache.NewDiskCache(cacheDir)
+	diskCache, err := gocache.NewDiskCache(cacheDir)
+	if err != nil {
+		panic(err)
+	}
 
 	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
 	largeObjectLimit := 8 * 1024 * 1024
@@ -86,19 +96,32 @@ func main() {
 		indexPosts: 15,
 	}
 
-	watchFiles(globalData)
+	go watchFiles(globalData)
 
-	router := httprouter.New()
+	router := httptreemux.New()
+
+	defer func() {
+		if err := recover(); err != nil {
+			router.Dump()
+			panic(err)
+		}
+	}()
+
 	router.GET("/", handlerWrapper(indexHandler, globalData))
 	router.GET("/:year/:month", handlerWrapper(archiveHandler, globalData))
 	router.GET("/:year/:month/:post", handlerWrapper(postHandler, globalData))
-	// No tags yet.
-	//router.GET("/tag/:tag", handlerWrapper(tagHandler, globalData))
-	// No pagination yet.
-	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
+
 	router.GET("/images/*file", handlerWrapper(staticNoCompressHandler, globalData))
 	router.GET("/assets/*file", handlerWrapper(staticCompressHandler, globalData))
+
+	// No tags yet.
+	router.GET("/tag/:tag", handlerWrapper(tagHandler, globalData))
+	// No pagination yet.
+	router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
+
 	router.GET("/:page", handlerWrapper(pageHandler, globalData))
+	router.GET("/favicon.ico", fileWrapper(
+		handlerWrapper(staticCompressHandler, globalData), "favicon.ico"))
 
 	http.ListenAndServe(":8080", router)
 }

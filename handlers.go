@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"github.com/dimfeld/gocache"
-	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"os"
 	"path"
@@ -129,12 +128,6 @@ func pageHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
 	page := urlParams["page"]
-	if page == "favicon.ico" {
-		// This is due to httprouter not allowing two routes that match on the same thing.
-		urlParams["file"] = "favicon.ico"
-		staticCompressHandler(globalData, w, r, urlParams)
-		return
-	}
 
 	filePath := determineCompression(w, r, page)
 	object, err := globalData.cache.Get(filePath,
@@ -149,7 +142,7 @@ func pageHandler(globalData *GlobalData, w http.ResponseWriter,
 
 func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	p := httprouter.CleanPath(urlParams["file"])
+	p := path.Clean(urlParams["file"])
 	filePath := path.Join("assets", p)
 	filePath = determineCompression(w, r, filePath)
 
@@ -166,7 +159,7 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 
 func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	filePath := "content" + httprouter.CleanPath(r.URL.Path)
+	filePath := "content" + path.Clean(r.URL.Path)
 
 	// Only read from the memCache, not the disk cache, since we aren't generating
 	// compressed versions.
