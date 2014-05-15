@@ -52,7 +52,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 
 	if date != "MISSING" {
 		f.WriteString(date + "\n")
-		expectedTime, err = time.Parse("1/2/06 3:04PM MST", strings.TrimSpace(date))
+		expectedTime, err = time.Parse(PostTimeFormat, strings.TrimSpace(date))
 		if err != nil {
 			validPost = false
 		}
