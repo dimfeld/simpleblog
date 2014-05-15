@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/dimfeld/gocache"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"strings"
 	"time"
 	//"io/ioutil"
-	//"html/template"
+	"html/template"
 )
 
 type PageGenerator func(*GlobalData, map[string]string) (PostList, error)
@@ -32,7 +33,7 @@ type TemplateData struct {
 	Archives ArchiveSpecList
 }
 
-func (ps PageSpec) Fill(cacheObj gocache.Cache, path string) (gocache.Object, error) {
+func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, error) {
 	posts, err := ps.generator(ps.globalData, ps.params)
 	if err != nil {
 		return gocache.Object{}, err
@@ -52,10 +53,17 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, path string) (gocache.Object, er
 	templateData.Archives = ps.globalData.archive
 	tags := NewTags(ps.globalData.tagsPath, ps.globalData.postsDir)
 	templateData.Tags = tags.TagsByPopularity()
-	output := posts[0].Content
 
-	uncompressed, compressed, err := gocache.CompressAndSet(cacheObj, path, output, time.Now())
-	if strings.HasSuffix(path, ".gz") {
+	tem, err := template.ParseFiles(path.Join(string(ps.globalData.dataDir), "templates/main.tmpl.html"))
+	if err != nil {
+		panic("Error parsing template: " + err.Error())
+	}
+
+	buf := &bytes.Buffer{}
+	tem.ExecuteTemplate(buf, "main.tmpl.html", templateData)
+
+	uncompressed, compressed, err := gocache.CompressAndSet(cacheObj, key, buf.Bytes(), time.Now())
+	if strings.HasSuffix(key, ".gz") {
 		return compressed, err
 	} else {
 		return uncompressed, err
