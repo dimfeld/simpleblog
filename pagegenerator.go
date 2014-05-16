@@ -44,6 +44,15 @@ func (t TemplateData) HrefFromPostPath(p string) string {
 }
 
 func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, error) {
+	if ps.globalData.archive == nil {
+		archive, err := NewArchiveSpecList(ps.globalData.postsDir)
+		if err != nil {
+			panic(err)
+		}
+
+		ps.globalData.archive = archive
+	}
+
 	posts, err := ps.generator(ps.globalData, ps.params)
 	if err != nil {
 		return gocache.Object{}, err
@@ -60,15 +69,6 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 		templateData.Page = posts[0]
 	} else {
 		templateData.Posts = posts
-	}
-
-	if ps.globalData.archive == nil {
-		archive, err := NewArchiveSpecList(ps.globalData.postsDir)
-		if err != nil {
-			panic(err)
-		}
-
-		ps.globalData.archive = archive
 	}
 
 	templateData.Archives = ps.globalData.archive
