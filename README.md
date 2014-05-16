@@ -1,4 +1,4 @@
-simpleblog
+simpleblog [![Build Status](https://travis-ci.org/dimfeld/simpleblog.png?branch=master)](https://travis-ci.org/dimfeld/simpleblog)
 ===========
 
 A very simple blog engine I'm writing to learn Go and play with other techniques in a simple environment. This is not yet finished.
@@ -7,6 +7,5 @@ This blog engine generates and serves static pages, with tag and archiving suppo
 
 ### Acknowledgements
 
-* [httprouter](https://github.com/julienschmidt/httprouter) for quick and easy URL routing
 * [blackfriday](https://github.com/russross/blackfriday) for Markdown->HTML conversion.
 * [fsnotify](https://github.com/howeyc/fsnotify) for inotify support.
