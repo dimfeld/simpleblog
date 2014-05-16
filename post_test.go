@@ -28,6 +28,13 @@ var testHTML []string = []string{
 	"<p>Charles Dickens Charles Dickens</p>",
 }
 
+var writeCapturer *WriteCapturer
+
+func init() {
+	writeCapturer = &WriteCapturer{}
+	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
+}
+
 func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine bool,
 	content string) {
 
@@ -63,10 +70,12 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 	if tags != "MISSING" {
 		f.WriteString(tags + "\n")
 
-		tagsList := strings.Split(tags, ",")
-		for _, tag := range tagsList {
-			tag = strings.Title(strings.TrimSpace(tag))
-			expectedTags[tag] = true
+		if tags != "" {
+			tagsList := strings.Split(tags, ",")
+			for _, tag := range tagsList {
+				tag = strings.Title(strings.TrimSpace(tag))
+				expectedTags[tag] = true
+			}
 		}
 	} else {
 		validPost = false
@@ -289,20 +298,22 @@ func createPostTree(t *testing.T) (dirPath string) {
 }
 
 type WriteCapturer struct {
-	data [][]byte
+	data []string
 }
 
 func (w *WriteCapturer) Write(data []byte) (n int, err error) {
 	if w.data == nil {
-		w.data = make([][]byte, 0)
+		w.Clear()
 	}
-	w.data = append(w.data, data)
+	w.data = append(w.data, string(data))
 	return len(data), nil
 }
 
+func (w *WriteCapturer) Clear() {
+	w.data = make([]string, 0)
+}
+
 func TestLoadPostsFromPath(t *testing.T) {
-	writeCapturer := &WriteCapturer{}
-	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
 	dir := createPostTree(t)
 	defer os.RemoveAll(dir)
 
@@ -335,6 +346,7 @@ func TestLoadPostsFromPath(t *testing.T) {
 	checkPostList(postList, expectedSorted)
 
 	t.Log("Testing with 3 valid posts and 1 invalid post")
+	writeCapturer.Clear()
 	ioutil.WriteFile(path.Join(dir, "2012/02/invalidpost"), []byte("Invalid post"), 0666)
 	postList, err = LoadPostsFromPath(dir, true)
 	if err == nil {
@@ -345,8 +357,8 @@ func TestLoadPostsFromPath(t *testing.T) {
 	}
 	sort.Sort(postList)
 	checkPostList(postList, expectedSorted)
-	if len(writeCapturer.data) != 1 {
-		t.Errorf("Expected 1 log message, saw %d", len(writeCapturer.data))
+	if len(writeCapturer.data) != 2 {
+		t.Errorf("Expected 2 log messages, saw %d: %v", len(writeCapturer.data), writeCapturer.data)
 	}
 
 	t.Log("Testing load from invalid path")
