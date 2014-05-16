@@ -11,11 +11,17 @@ import (
 func watchFiles(globalData *GlobalData) {
 	tw, err := treewatcher.New()
 	if err != nil {
-		return
+		logger.Fatal("Failed to create file system watcher")
 	}
 
+	logger.Println("Watching directory", string(globalData.dataDir))
 	tw.WatchTree(string(globalData.dataDir))
-	tw.WatchTree(string(globalData.postsDir))
+
+	if _, err = filepath.Rel(string(globalData.dataDir), globalData.postsDir); err != nil {
+		// PostsDir is not a subdirectory of dataDir, so watch it too.
+		logger.Println("Watching directory", string(globalData.postsDir))
+		tw.WatchTree(string(globalData.postsDir))
+	}
 
 	for {
 		select {
@@ -31,11 +37,11 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	fullPath := event.Name
 
 	// Get the cache path, relative to either the data directory or the post directory.
-	cachePath, err := filepath.Rel(string(globalData.dataDir), fullPath)
-	isPost := false
+	cachePath, err := filepath.Rel(globalData.postsDir, fullPath)
+	isPost := true
 	if err != nil {
-		cachePath, err = filepath.Rel(globalData.postsDir, fullPath)
-		isPost = true
+		cachePath, err = filepath.Rel(string(globalData.dataDir), fullPath)
+		isPost = false
 		if err != nil {
 			logger.Printf("Path %s is not in data or posts dir")
 			return
@@ -46,10 +52,14 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	// that we need to update the tag list on every page, or something similar.
 	// Same for when a template is updated since that affects every page.
 	if isPost || strings.HasSuffix(fullPath, "tmpl.html") {
+		debug("FsWatcher clearing post data for update of", fullPath)
 		globalData.cache.Del("*")
 		os.Remove(globalData.tagsPath)
+		// TODO This needs a mutex.
+		globalData.archive = nil
 	} else {
 		// It's some other data, so just invalidate that one object from the cache.
+		debug("FsWatcher clearing data for", fullPath)
 		globalData.cache.Del(cachePath)
 		globalData.cache.Del(cachePath + ".gz")
 	}
