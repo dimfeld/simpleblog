@@ -186,12 +186,12 @@ func sendData(w http.ResponseWriter, r *http.Request, name string,
 
 	header := w.Header()
 	header.Add("Vary", "Accept-Encoding")
-	// 30 days in seconds
+	// 5 minutes in seconds
 	if _, ok := header["Cache-Control"]; !ok {
-		header.Set("Cache-Control", "public, max-age=2592000")
+		header.Set("Cache-Control", "public, max-age=300")
 	}
 	if _, ok := header["Expires"]; !ok {
-		header.Set("Expires", time.Now().AddDate(0, 1, 0).String())
+		header.Set("Expires", time.Now().Add(300*time.Second).String())
 	}
 
 	if compression {
