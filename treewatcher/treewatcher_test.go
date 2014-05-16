@@ -36,7 +36,7 @@ func expectNoEvent(t *testing.T, tw *TreeWatcher) {
 	}
 }
 
-func expectEvent(t *testing.T, tw *TreeWatcher) *fsnotify.FileEvent {
+func getEvent(t *testing.T, tw *TreeWatcher) *fsnotify.FileEvent {
 	noError := false
 	for !noError {
 		select {
@@ -55,10 +55,18 @@ func expectEvent(t *testing.T, tw *TreeWatcher) *fsnotify.FileEvent {
 		return event
 	// Wait at most 1 second for the event to show up.
 	case <-time.After(1 * time.Second):
-		t.Fatal("Expected an event but found none.")
+		return nil
 	}
 
 	return nil
+}
+
+func expectEvent(t *testing.T, tw *TreeWatcher) *fsnotify.FileEvent {
+	event := getEvent(t, tw)
+	if event == nil {
+		t.Fatal("Expected an event but found none.")
+	}
+	return event
 }
 
 func writeFile(t *testing.T, tw *TreeWatcher, filename string, data string) {
@@ -163,6 +171,9 @@ func renameFile(t *testing.T, tw *TreeWatcher, oldName, newName string) {
 	if !sawRename {
 		t.Errorf("Expected rename event on \"%s\" but got %v", oldName, events)
 	}
+
+	// Sometimes we get a 3rd event which is another rename. Sometimes not.
+	getEvent(t, tw)
 
 	expectNoEvent(t, tw)
 }
