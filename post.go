@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/russross/blackfriday"
+	"html/template"
 	"os"
 	"path"
 	"path/filepath"
@@ -47,7 +48,13 @@ func (p *Post) readHeader(reader *bufio.Reader) (err error) {
 	if err != nil {
 		return
 	}
-	p.Tags = strings.Split(line, ",")
+
+	line = strings.TrimSpace(line)
+	if line == "" {
+		p.Tags = []string{}
+	} else {
+		p.Tags = strings.Split(line, ",")
+	}
 	for i := range p.Tags {
 		p.Tags[i] = strings.Title(strings.TrimSpace(p.Tags[i]))
 	}
@@ -85,6 +92,7 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 
 	err = p.readHeader(reader)
 	if err != nil {
+		logger.Printf("Error reading post %s: %s", filePath, err.Error())
 		return
 	}
 
@@ -100,13 +108,31 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 	return
 }
 
-func (p *Post) HTMLContent() []byte {
-	return blackfriday.MarkdownCommon(p.Content)
+func (p *Post) HTMLContent() template.HTML {
+	htmlFlags := 0
+	htmlFlags |= blackfriday.HTML_USE_XHTML
+	htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
+	htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
+	htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
+	renderer := blackfriday.HtmlRenderer(htmlFlags, "", "")
+
+	// set up the parser
+	extensions := 0
+	extensions |= blackfriday.EXTENSION_NO_INTRA_EMPHASIS
+	extensions |= blackfriday.EXTENSION_TABLES
+	extensions |= blackfriday.EXTENSION_FENCED_CODE
+	extensions |= blackfriday.EXTENSION_AUTOLINK
+	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
+	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
+	extensions |= blackfriday.EXTENSION_HEADER_IDS
+
+	return template.HTML(blackfriday.Markdown(p.Content, renderer, extensions))
 }
 
 func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 	var outerErr error = nil
 	postList := make(PostList, 0, 15)
+	debug("LoadPostsFromPath: Loading from", postPath)
 	err := filepath.Walk(postPath,
 		func(filePath string, info os.FileInfo, err error) error {
 			if info == nil {
@@ -115,6 +141,7 @@ func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 			if info.IsDir() {
 				return nil
 			}
+			debug("LoadPostsFromPath: Loading", filePath)
 			newPost, err := NewPost(filePath, readContent)
 			if err == nil {
 				postList = append(postList, newPost)
@@ -148,6 +175,7 @@ func NewArchiveSpecList(postBase string) (ArchiveSpecList, error) {
 	// Read out the list of year directories.
 	yearDirs, err := postDir.Readdir(0)
 	if err != nil {
+		logger.Println("Nothing in posts directory")
 		return nil, err
 	}
 
