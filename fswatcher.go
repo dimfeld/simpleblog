@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/dimfeld/simpleblog/treewatcher"
+	"github.com/dimfeld/treewatcher"
 	"github.com/howeyc/fsnotify"
 	"os"
 	"path/filepath"
