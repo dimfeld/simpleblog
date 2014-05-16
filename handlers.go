@@ -20,6 +20,7 @@ func error500(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
+	logger.Println(err)
 	if os.IsNotExist(err) {
 		error404(w, r)
 	} else {
@@ -30,11 +31,13 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 
 // determineCompression figures out if compression can be used, and adds a .gz extension so that
 // we get the compressed version of the file instead.
-func determineCompression(w http.ResponseWriter, r *http.Request, path string) (outPath string) {
+func determineCompression(w http.ResponseWriter, r *http.Request, path string) (outPath string,
+	compression bool) {
+
 	if _, ok := r.Header["Range"]; ok {
 		// No compression if the user passed a range request, since returning a slice of the
 		// compressed version from the cache would then return invalid data.
-		return path
+		return path, false
 	}
 
 	encodings := r.Header["Accept-Encoding"]
@@ -42,20 +45,18 @@ func determineCompression(w http.ResponseWriter, r *http.Request, path string) (
 	for index := range encodings {
 		if strings.Contains(encodings[index], "gzip") {
 			// Use the gzipped version.
-			outPath = path + ".gz"
-			w.Header().Set("Content-Encoding", "gzip")
-			break
+			return path + ".gz", true
 		}
 	}
 
-	return outPath
+	return path, false
 }
 
 func postHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
-	filePath := path.Join(urlParams["year"], urlParams["month"], urlParams["post"])
-	filePath = determineCompression(w, r, filePath)
+	filePath := path.Join(urlParams["year"], urlParams["month"], urlParams["post"]) + ".md"
+	filePath, compression := determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
 		PageSpec{globalData, false, generatePostPage, urlParams})
@@ -64,7 +65,7 @@ func postHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, urlParams["post"]+".html", data)
+	sendData(w, r, urlParams["post"]+".html", compression, data)
 }
 
 func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
@@ -80,7 +81,7 @@ func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
 	}
 	filename := year + "-" + month
 	filePath := path.Join("archive", filename)
-	filePath = determineCompression(w, r, filePath)
+	filePath, compression := determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
 		PageSpec{globalData, false, generateArchivePage, urlParams})
@@ -89,14 +90,14 @@ func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, filename+".html", data)
+	sendData(w, r, filename+".html", compression, data)
 }
 
 func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
 	filePath := path.Join("tags", urlParams["tag"])
-	filePath = determineCompression(w, r, filePath)
+	filePath, compression := determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
 		PageSpec{globalData, false, generateTagsPage, urlParams})
@@ -105,14 +106,14 @@ func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, urlParams["tag"]+".html", data)
+	sendData(w, r, urlParams["tag"]+".html", compression, data)
 }
 
 func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
 
 	filename := "index.html"
-	filePath := determineCompression(w, r, filename)
+	filePath, compression := determineCompression(w, r, filename)
 
 	data, err := globalData.cache.Get(filePath,
 		PageSpec{globalData, false, generateIndexPage, urlParams})
@@ -121,7 +122,7 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, filename, data)
+	sendData(w, r, filename, compression, data)
 }
 
 func pageHandler(globalData *GlobalData, w http.ResponseWriter,
@@ -129,7 +130,7 @@ func pageHandler(globalData *GlobalData, w http.ResponseWriter,
 
 	page := urlParams["page"]
 
-	filePath := determineCompression(w, r, page)
+	filePath, compression := determineCompression(w, r, page)
 	object, err := globalData.cache.Get(filePath,
 		PageSpec{globalData, true, generateCustomPage, urlParams})
 	if err != nil {
@@ -137,14 +138,13 @@ func pageHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, urlParams["page"], object)
+	sendData(w, r, urlParams["page"], compression, object)
 }
 
 func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	p := path.Clean(urlParams["file"])
-	filePath := path.Join("assets", p)
-	filePath = determineCompression(w, r, filePath)
+	filePath := urlParams["file"]
+	filePath, compression := determineCompression(w, r, filePath)
 
 	object, err := globalData.cache.Get(filePath,
 		DirectCacheFiller{globalData, true})
@@ -154,12 +154,12 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	}
 
 	setStaticAssetHeaders(w)
-	sendData(w, r, urlParams["file"], object)
+	sendData(w, r, urlParams["file"], compression, object)
 }
 
 func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	r *http.Request, urlParams map[string]string) {
-	filePath := "content" + path.Clean(r.URL.Path)
+	filePath := urlParams["file"]
 
 	// Only read from the memCache, not the disk cache, since we aren't generating
 	// compressed versions.
@@ -171,7 +171,7 @@ func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	}
 
 	setStaticAssetHeaders(w)
-	sendData(w, r, urlParams["file"], object)
+	sendData(w, r, filePath, false, object)
 }
 
 func setStaticAssetHeaders(w http.ResponseWriter) {
@@ -181,7 +181,9 @@ func setStaticAssetHeaders(w http.ResponseWriter) {
 }
 
 // sendData returns a file to the user, handling relevant headers in the request and response.
-func sendData(w http.ResponseWriter, r *http.Request, name string, object gocache.Object) {
+func sendData(w http.ResponseWriter, r *http.Request, name string,
+	compression bool, object gocache.Object) {
+
 	header := w.Header()
 	header.Add("Vary", "Accept-Encoding")
 	// 30 days in seconds
@@ -190,6 +192,10 @@ func sendData(w http.ResponseWriter, r *http.Request, name string, object gocach
 	}
 	if _, ok := header["Expires"]; !ok {
 		header.Set("Expires", time.Now().AddDate(0, 1, 0).String())
+	}
+
+	if compression {
+		w.Header().Set("Content-Encoding", "gzip")
 	}
 
 	reader := bytes.NewReader(object.Data)
