@@ -138,14 +138,30 @@ func renameFile(t *testing.T, tw *TreeWatcher, oldName, newName string) {
 		t.Fatalf("Rename %s to %s failed with %s", oldName, newName, err)
 	}
 
-	event := expectEvent(t, tw)
-	if !event.IsCreate() || event.Name != newName {
-		t.Errorf("Expected rename event on \"%s\" but got %s", newName, event.String())
+	events := make([]*fsnotify.FileEvent, 2)
+	events[0] = expectEvent(t, tw)
+	events[1] = expectEvent(t, tw)
+
+	sawCreate := false
+	sawRename := false
+
+	for _, event := range events {
+		if event.IsCreate() && event.Name == newName {
+			sawCreate = true
+
+		}
+
+		if event.IsRename() && event.Name == oldName {
+			sawRename = true
+		}
 	}
 
-	event = expectEvent(t, tw)
-	if !event.IsRename() || event.Name != oldName {
-		t.Errorf("Expected rename event on \"%s\" but got %s", oldName, event.String())
+	if !sawCreate {
+		t.Errorf("Expected create event on \"%s\" but got %v", newName, events)
+	}
+
+	if !sawRename {
+		t.Errorf("Expected rename event on \"%s\" but got %v", oldName, events)
 	}
 
 	expectNoEvent(t, tw)
