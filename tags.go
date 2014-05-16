@@ -11,9 +11,7 @@ type TagPopularity []TagCount
 
 type Tags struct {
 	TagsFile string `json:"-"`
-	Loaded   bool   `json:"-"`
 	// Collection of Post objects, indexed by file path.
-	// These Post objects do not have the content filled in.
 	Post map[string]*Post
 	// For each tag found, a collection of file paths.
 	Tag TagPostMap
@@ -25,14 +23,15 @@ type TagCount struct {
 }
 
 func NewTags(tagsFile string, postPath string) *Tags {
-	tags := &Tags{tagsFile, false, make(map[string]*Post), make(map[string][]string)}
+	tags := &Tags{tagsFile, make(map[string]*Post), make(map[string][]string)}
 	// Ignore errors here. It's ok if we can't load, which usually just means that the
 	// tags file doesn't exist.
 	err := tags.Load()
 	if err != nil {
 		err = tags.Generate(postPath)
 		if err != nil {
-			return nil
+			logger.Println("NewTags:", err)
+			return tags
 		}
 		tags.Save()
 	}
@@ -49,7 +48,7 @@ func (tags *Tags) AddPost(post *Post) {
 func (tags *Tags) AddPostTag(post *Post, tag string) {
 	l := tags.Tag[tag]
 	if l == nil {
-		l = make([]string, 0)
+		l = []string{}
 	}
 	l = append(l, post.SourcePath)
 	tags.Tag[tag] = l
@@ -64,7 +63,6 @@ func (tags *Tags) Load() error {
 	if err != nil {
 		return err
 	}
-	tags.Loaded = true
 	return nil
 }
 
@@ -80,7 +78,7 @@ func (tags *Tags) Generate(postPath string) error {
 	// Walk through postPath, finding all posts.
 	// On each file that successfully parses, add it to the map.
 
-	err := tags.readPostHeaders(postPath)
+	err := tags.readPosts(postPath)
 	if err != nil {
 		return err
 	}
@@ -95,8 +93,8 @@ func (tags *Tags) Generate(postPath string) error {
 	return nil
 }
 
-func (tags *Tags) readPostHeaders(postPath string) error {
-	postList, err := LoadPostsFromPath(postPath, false)
+func (tags *Tags) readPosts(postPath string) error {
+	postList, err := LoadPostsFromPath(postPath, true)
 	if err != nil {
 		return err
 	}
