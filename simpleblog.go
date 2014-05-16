@@ -1,26 +1,43 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"fmt"
 	"github.com/dimfeld/gocache"
+	"github.com/dimfeld/httppath"
 	"github.com/dimfeld/httptreemux"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var (
-	logger *log.Logger
+	logger      *log.Logger
+	debugLogger *log.Logger
+	debugMode   bool
 )
+
+func debugf(format string, args ...interface{}) {
+	if debugMode {
+		debugLogger.Printf(format, args...)
+	}
+}
+
+func debug(args ...interface{}) {
+	if debugMode {
+		debugLogger.Println(args...)
+	}
+}
 
 type GlobalData struct {
 	// Configuration Data
-	indexPosts int
-	postsDir   string
-	dataDir    http.Dir
-	tagsPath   string
+	indexPosts          int
+	postsDir            string
+	dataDir             http.Dir
+	tagsPath            string
+	tagsPageReverseSort bool
 
 	// General cache
 	cache    gocache.Cache
@@ -32,25 +49,47 @@ type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map
 
 func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
+		logger.Printf("%s %s", r.Method, r.URL.Path)
+		startTime := time.Now()
 		handler(globalData, w, r, urlParams)
+		endTime := time.Now()
+		duration := endTime.Sub(startTime)
+		logger.Printf("   Handled in %d us", duration/time.Microsecond)
 	}
 }
 
-func fileWrapper(handler httptreemux.HandlerFunc, filename string) httptreemux.HandlerFunc {
+func fileWrapper(filename string, handler httptreemux.HandlerFunc) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
 		urlParams["file"] = filename
 		handler(w, r, urlParams)
 	}
 }
 
+func filePrefixWrapper(prefix string, handler httptreemux.HandlerFunc) httptreemux.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
+		urlParams["file"] = "/" + filepath.Join(prefix, httppath.Clean(urlParams["file"]))
+		handler(w, r, urlParams)
+	}
+}
+
+func isDirectory(dirPath string) bool {
+	stat, err := os.Stat(dirPath)
+	if err != nil || !stat.IsDir() {
+		return false
+	}
+	return true
+}
+
 func main() {
 	// TODO Load these from configuration
 	cacheDir, _ := filepath.Abs("cache")
-	dataDirStr, _ := filepath.Abs("data")
+	dataDirStr, _ := filepath.Abs("./testdata")
 	dataDir := http.Dir(dataDirStr)
-	postsDir, _ := filepath.Abs("posts")
+	postsDir := filepath.Join(dataDirStr, "posts")
 	logFilename, _ := filepath.Abs("simpleblog.log")
-	logPrefix := "SimpleBlog"
+	logPrefix := ""
+	tagsPageReverseSort := true
+	indexPosts := 15
 
 	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
 	if err != nil {
@@ -58,18 +97,39 @@ func main() {
 		os.Exit(1)
 	}
 	// Overkill?
-	logBuffer := bufio.NewWriter(logFile)
+	//logBuffer := bufio.NewWriter(logFile)
 
 	defer func() {
-		logBuffer.Flush()
+		//logBuffer.Flush()
+		logger.Println("Shutting down...")
+		logFile.Sync()
 		logFile.Close()
 	}()
 
-	logger = log.New(logBuffer, logPrefix, log.LstdFlags)
+	logger = log.New(logFile, logPrefix, log.LstdFlags)
+	debugLogger = log.New(logFile, "DEBUG ", log.LstdFlags)
+	debugMode = true
+	logger.Println("Starting...")
 
 	diskCache, err := gocache.NewDiskCache(cacheDir)
 	if err != nil {
-		panic(err)
+		logger.Fatal("Could not create disk cache in", cacheDir)
+	}
+
+	if !isDirectory(dataDirStr) {
+		logger.Fatal("Could not find data directory", dataDirStr)
+	}
+
+	if !isDirectory(postsDir) {
+		logger.Fatal("Could not find posts directory", postsDir)
+	}
+
+	if !isDirectory(filepath.Join(dataDirStr, "assets")) {
+		logger.Fatal("Could not find assets directory", filepath.Join(dataDirStr, "assets"))
+	}
+
+	if !isDirectory(filepath.Join(dataDirStr, "images")) {
+		logger.Fatal("Could not find assets directory", filepath.Join(dataDirStr, "images"))
 	}
 
 	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
@@ -87,41 +147,40 @@ func main() {
 
 	multiLevelCache := gocache.MultiLevel{0: memCache, 1: diskCache}
 
+	tagsPath := filepath.Join(cacheDir, "tags.json")
+	os.Remove(tagsPath)
 	globalData := &GlobalData{
-		cache:      multiLevelCache,
-		memCache:   memCache,
-		dataDir:    dataDir,
-		postsDir:   postsDir,
-		tagsPath:   filepath.Join(cacheDir, "tags.json"),
-		indexPosts: 15,
+		cache:               multiLevelCache,
+		memCache:            memCache,
+		dataDir:             dataDir,
+		postsDir:            postsDir,
+		tagsPath:            tagsPath,
+		tagsPageReverseSort: tagsPageReverseSort,
+		indexPosts:          indexPosts,
 	}
 
 	go watchFiles(globalData)
 
 	router := httptreemux.New()
-
-	defer func() {
-		if err := recover(); err != nil {
-			router.Dump()
-			panic(err)
-		}
-	}()
+	router.PanicHandler = httptreemux.ShowErrorsPanicHandler
 
 	router.GET("/", handlerWrapper(indexHandler, globalData))
-	router.GET("/:year/:month", handlerWrapper(archiveHandler, globalData))
+	router.GET("/:year/:month/", handlerWrapper(archiveHandler, globalData))
 	router.GET("/:year/:month/:post", handlerWrapper(postHandler, globalData))
 
-	router.GET("/images/*file", handlerWrapper(staticNoCompressHandler, globalData))
-	router.GET("/assets/*file", handlerWrapper(staticCompressHandler, globalData))
+	router.GET("/images/*file", filePrefixWrapper("images",
+		handlerWrapper(staticNoCompressHandler, globalData)))
+	router.GET("/assets/*file", filePrefixWrapper("assets",
+		handlerWrapper(staticCompressHandler, globalData)))
 
 	// No tags yet.
 	router.GET("/tag/:tag", handlerWrapper(tagHandler, globalData))
 	// No pagination yet.
-	router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
+	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
 
 	router.GET("/:page", handlerWrapper(pageHandler, globalData))
-	router.GET("/favicon.ico", fileWrapper(
-		handlerWrapper(staticCompressHandler, globalData), "favicon.ico"))
+	router.GET("/favicon.ico", fileWrapper("assets/favicon.ico",
+		handlerWrapper(staticCompressHandler, globalData)))
 
 	http.ListenAndServe(":8080", router)
 }
