@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"time"
 )
@@ -29,6 +30,18 @@ func debug(args ...interface{}) {
 	if debugMode {
 		debugLogger.Println(args...)
 	}
+}
+func catchSIGINT(f func(), quit bool) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for _ = range c {
+			f()
+			if quit {
+				os.Exit(1)
+			}
+		}
+	}()
 }
 
 type GlobalData struct {
@@ -90,25 +103,34 @@ func main() {
 	logPrefix := ""
 	tagsPageReverseSort := true
 	indexPosts := 15
+	debugMode = true
 
 	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
 	if err != nil {
 		fmt.Println("Could not open log file", logFilename)
 		os.Exit(1)
 	}
-	// Overkill?
-	//logBuffer := bufio.NewWriter(logFile)
 
-	defer func() {
-		//logBuffer.Flush()
+	logBuffer := bufio.NewWriter(logFile)
+
+	closer := func() {
+		logBuffer.Flush()
 		logger.Println("Shutting down...")
 		logFile.Sync()
 		logFile.Close()
-	}()
+	}
 
-	logger = log.New(logFile, logPrefix, log.LstdFlags)
-	debugLogger = log.New(logFile, "DEBUG ", log.LstdFlags)
-	debugMode = true
+	catchSIGINT(closer, true)
+	defer closer()
+
+	var logWriter io.Writer = logBuffer
+	if debugMode {
+		// In debug mode, use unbuffered logging so that they come out right away.
+		logWriter = logFile
+	}
+
+	logger = log.New(logBuffer, logPrefix, log.LstdFlags)
+	debugLogger = log.New(logBuffer, "DEBUG ", log.LstdFlags)
 	logger.Println("Starting...")
 
 	diskCache, err := gocache.NewDiskCache(cacheDir)
