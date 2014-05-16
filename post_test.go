@@ -38,7 +38,7 @@ func init() {
 func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine bool,
 	content string) {
 
-	t.Logf("Testing title: %s, date: %s, tags: \"%s\", postHeaderLine: %s",
+	t.Logf("Testing %s,  %s, \"%s\", %s",
 		title, date, tags, strconv.FormatBool(includePostHeaderLine))
 
 	var expectedTime time.Time
