@@ -2,10 +2,12 @@ package main
 
 import (
 	// "bufio"
+	"bufio"
 	"fmt"
 	"github.com/dimfeld/gocache"
 	"github.com/dimfeld/httppath"
 	"github.com/dimfeld/httptreemux"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -114,8 +116,8 @@ func main() {
 	logBuffer := bufio.NewWriter(logFile)
 
 	closer := func() {
-		logBuffer.Flush()
 		logger.Println("Shutting down...")
+		logBuffer.Flush()
 		logFile.Sync()
 		logFile.Close()
 	}
@@ -124,13 +126,13 @@ func main() {
 	defer closer()
 
 	var logWriter io.Writer = logBuffer
-	if debugMode {
-		// In debug mode, use unbuffered logging so that they come out right away.
-		logWriter = logFile
-	}
+	// if debugMode {
+	// 	// In debug mode, use unbuffered logging so that they come out right away.
+	// 	logWriter = logFile
+	// }
 
-	logger = log.New(logBuffer, logPrefix, log.LstdFlags)
-	debugLogger = log.New(logBuffer, "DEBUG ", log.LstdFlags)
+	logger = log.New(logWriter, logPrefix, log.LstdFlags)
+	debugLogger = log.New(logWriter, "DEBUG ", log.LstdFlags)
 	logger.Println("Starting...")
 
 	diskCache, err := gocache.NewDiskCache(cacheDir)
