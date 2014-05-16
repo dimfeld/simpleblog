@@ -53,10 +53,20 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	// Same for when a template is updated since that affects every page.
 	if isPost || strings.HasSuffix(fullPath, "tmpl.html") {
 		debug("FsWatcher clearing post data for update of", fullPath)
-		globalData.cache.Del("*")
+
+		newArchiveList, err := NewArchiveSpecList(globalData.postsDir)
+		if err != nil {
+			newArchiveList = nil
+		}
+
+		globalData.Lock()
+		globalData.archive = newArchiveList
+		globalData.Unlock()
+
 		os.Remove(globalData.tagsPath)
-		// TODO This needs a mutex.
-		globalData.archive = nil
+
+		globalData.cache.Del("*")
+
 	} else {
 		// It's some other data, so just invalidate that one object from the cache.
 		debug("FsWatcher clearing data for", fullPath)

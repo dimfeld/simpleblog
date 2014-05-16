@@ -44,13 +44,19 @@ func (t TemplateData) HrefFromPostPath(p string) string {
 }
 
 func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, error) {
-	if ps.globalData.archive == nil {
+	ps.globalData.RLock()
+	archive := ps.globalData.archive
+	ps.globalData.RUnlock()
+	if archive == nil {
+
 		archive, err := NewArchiveSpecList(ps.globalData.postsDir)
 		if err != nil {
 			panic(err)
 		}
 
+		ps.globalData.Lock()
 		ps.globalData.archive = archive
+		ps.globalData.Unlock()
 	}
 
 	posts, err := ps.generator(ps.globalData, ps.params)

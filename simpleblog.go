@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -47,6 +48,7 @@ func catchSIGINT(f func(), quit bool) {
 }
 
 type GlobalData struct {
+	*sync.RWMutex
 	// Configuration Data
 	indexPosts          int
 	postsDir            string
@@ -126,10 +128,10 @@ func main() {
 	defer closer()
 
 	var logWriter io.Writer = logBuffer
-	// if debugMode {
-	// 	// In debug mode, use unbuffered logging so that they come out right away.
-	// 	logWriter = logFile
-	// }
+	if debugMode {
+		// In debug mode, use unbuffered logging so that they come out right away.
+		logWriter = logFile
+	}
 
 	logger = log.New(logWriter, logPrefix, log.LstdFlags)
 	debugLogger = log.New(logWriter, "DEBUG ", log.LstdFlags)
@@ -174,6 +176,7 @@ func main() {
 	tagsPath := filepath.Join(cacheDir, "tags.json")
 	os.Remove(tagsPath)
 	globalData := &GlobalData{
+		RWMutex:             &sync.RWMutex{},
 		cache:               multiLevelCache,
 		memCache:            memCache,
 		dataDir:             dataDir,
@@ -182,6 +185,12 @@ func main() {
 		tagsPageReverseSort: tagsPageReverseSort,
 		indexPosts:          indexPosts,
 	}
+
+	archive, err := NewArchiveSpecList(postsDir)
+	if err != nil {
+		logger.Fatal("Could not create archive list: ", err)
+	}
+	globalData.archive = archive
 
 	go watchFiles(globalData)
 
