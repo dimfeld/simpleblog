@@ -1,0 +1,8 @@
+IndexPosts = 15
+PostsDir = "testdata/posts"
+DataDir = "testdata"
+TagsPath = "cache/tags.json"
+TagsPageReverseSort = true
+LogFile = "simpleblog.log"
+LogPrefix = ""
+DebugMode = true
