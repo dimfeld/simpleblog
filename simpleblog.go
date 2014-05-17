@@ -66,7 +66,7 @@ type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map
 
 func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
-		logger.Printf("%s %s", r.Method, r.URL.Path)
+		logger.Printf("%s %s %s", r.Method, r.RequestURI)
 		startTime := time.Now()
 		handler(globalData, w, r, urlParams)
 		endTime := time.Now()
