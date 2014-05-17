@@ -14,13 +14,13 @@ func watchFiles(globalData *GlobalData) {
 		logger.Fatal("Failed to create file system watcher")
 	}
 
-	logger.Println("Watching directory", string(globalData.dataDir))
-	tw.WatchTree(string(globalData.dataDir))
+	logger.Println("Watching directory", globalData.config.DataDir)
+	tw.WatchTree(globalData.config.DataDir)
 
-	if _, err = filepath.Rel(string(globalData.dataDir), globalData.postsDir); err != nil {
+	if _, err = filepath.Rel(globalData.config.DataDir, globalData.config.PostsDir); err != nil {
 		// PostsDir is not a subdirectory of dataDir, so watch it too.
-		logger.Println("Watching directory", string(globalData.postsDir))
-		tw.WatchTree(string(globalData.postsDir))
+		logger.Println("Watching directory", string(globalData.config.PostsDir))
+		tw.WatchTree(string(globalData.config.PostsDir))
 	}
 
 	for {
@@ -37,10 +37,10 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	fullPath := event.Name
 
 	// Get the cache path, relative to either the data directory or the post directory.
-	cachePath, err := filepath.Rel(globalData.postsDir, fullPath)
+	cachePath, err := filepath.Rel(globalData.config.PostsDir, fullPath)
 	isPost := true
 	if err != nil {
-		cachePath, err = filepath.Rel(string(globalData.dataDir), fullPath)
+		cachePath, err = filepath.Rel(globalData.config.DataDir, fullPath)
 		isPost = false
 		if err != nil {
 			logger.Printf("Path %s is not in data or posts dir")
@@ -54,7 +54,7 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	if isPost || strings.HasSuffix(fullPath, "tmpl.html") {
 		debug("FsWatcher clearing post data for update of", fullPath)
 
-		newArchiveList, err := NewArchiveSpecList(globalData.postsDir)
+		newArchiveList, err := NewArchiveSpecList(globalData.config.PostsDir)
 		if err != nil {
 			newArchiveList = nil
 		}
@@ -63,7 +63,7 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 		globalData.archive = newArchiveList
 		globalData.Unlock()
 
-		os.Remove(globalData.tagsPath)
+		os.Remove(globalData.config.TagsPath)
 
 		globalData.cache.Del("*")
 

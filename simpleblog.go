@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/dimfeld/gocache"
+	"github.com/dimfeld/goconfig"
 	"github.com/dimfeld/httppath"
 	"github.com/dimfeld/httptreemux"
 	"io"
@@ -49,12 +50,7 @@ func catchSIGINT(f func(), quit bool) {
 
 type GlobalData struct {
 	*sync.RWMutex
-	// Configuration Data
-	indexPosts          int
-	postsDir            string
-	dataDir             http.Dir
-	tagsPath            string
-	tagsPageReverseSort bool
+	config *Config
 
 	// General cache
 	cache    gocache.Cache
@@ -62,11 +58,23 @@ type GlobalData struct {
 	archive  ArchiveSpecList
 }
 
+type Config struct {
+	IndexPosts          int
+	PostsDir            string
+	DataDir             string
+	CacheDir            string
+	TagsPath            string
+	TagsPageReverseSort bool
+	LogFile             string
+	LogPrefix           string
+	DebugMode           bool
+}
+
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
 
 func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
-		logger.Printf("%s %s %s", r.Method, r.RequestURI)
+		logger.Printf("%s %s", r.Method, r.RequestURI)
 		startTime := time.Now()
 		handler(globalData, w, r, urlParams)
 		endTime := time.Now()
@@ -98,20 +106,38 @@ func isDirectory(dirPath string) bool {
 }
 
 func main() {
-	// TODO Load these from configuration
-	cacheDir, _ := filepath.Abs("cache")
-	dataDirStr, _ := filepath.Abs("./testdata")
-	dataDir := http.Dir(dataDirStr)
-	postsDir := filepath.Join(dataDirStr, "posts")
-	logFilename, _ := filepath.Abs("simpleblog.log")
-	logPrefix := ""
-	tagsPageReverseSort := true
-	indexPosts := 15
-	debugMode = true
+	config := &Config{}
+	confFile := os.Getenv("SIMPLEBLOG_CONFFILE")
+	if len(os.Args) > 1 {
+		confFile = os.Args[1]
+	}
 
-	logFile, err := os.OpenFile(logFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
+	if confFile == "" {
+		confFile = "simpleblog.conf"
+	}
+
+	var confReader io.Reader = os.Stdin
+	var err error
+	if confFile != "-" {
+		// Load from stdin
+		confReader, err = os.Open(confFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
+	err = goconfig.Load(config, confReader, "SIMPLEBLOG")
 	if err != nil {
-		fmt.Println("Could not open log file", logFilename)
+		fmt.Fprintf(os.Stderr, "Error loading config: %s\n", err)
+		os.Exit(1)
+	}
+
+	debugMode = config.DebugMode
+
+	logFile, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not open log file %s\n", config.LogFile)
 		os.Exit(1)
 	}
 
@@ -133,29 +159,29 @@ func main() {
 		logWriter = logFile
 	}
 
-	logger = log.New(logWriter, logPrefix, log.LstdFlags)
+	logger = log.New(logWriter, config.LogPrefix, log.LstdFlags)
 	debugLogger = log.New(logWriter, "DEBUG ", log.LstdFlags)
 	logger.Println("Starting...")
 
-	diskCache, err := gocache.NewDiskCache(cacheDir)
+	diskCache, err := gocache.NewDiskCache(config.CacheDir)
 	if err != nil {
-		logger.Fatal("Could not create disk cache in", cacheDir)
+		logger.Fatal("Could not create disk cache in", config.CacheDir)
 	}
 
-	if !isDirectory(dataDirStr) {
-		logger.Fatal("Could not find data directory", dataDirStr)
+	if !isDirectory(config.DataDir) {
+		logger.Fatal("Could not find data directory", config.DataDir)
 	}
 
-	if !isDirectory(postsDir) {
-		logger.Fatal("Could not find posts directory", postsDir)
+	if !isDirectory(config.PostsDir) {
+		logger.Fatal("Could not find posts directory", config.PostsDir)
 	}
 
-	if !isDirectory(filepath.Join(dataDirStr, "assets")) {
-		logger.Fatal("Could not find assets directory", filepath.Join(dataDirStr, "assets"))
+	if !isDirectory(filepath.Join(config.DataDir, "assets")) {
+		logger.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "assets"))
 	}
 
-	if !isDirectory(filepath.Join(dataDirStr, "images")) {
-		logger.Fatal("Could not find assets directory", filepath.Join(dataDirStr, "images"))
+	if !isDirectory(filepath.Join(config.DataDir, "images")) {
+		logger.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "images"))
 	}
 
 	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
@@ -173,20 +199,15 @@ func main() {
 
 	multiLevelCache := gocache.MultiLevel{0: memCache, 1: diskCache}
 
-	tagsPath := filepath.Join(cacheDir, "tags.json")
-	os.Remove(tagsPath)
+	os.Remove(config.TagsPath)
 	globalData := &GlobalData{
-		RWMutex:             &sync.RWMutex{},
-		cache:               multiLevelCache,
-		memCache:            memCache,
-		dataDir:             dataDir,
-		postsDir:            postsDir,
-		tagsPath:            tagsPath,
-		tagsPageReverseSort: tagsPageReverseSort,
-		indexPosts:          indexPosts,
+		RWMutex:  &sync.RWMutex{},
+		cache:    multiLevelCache,
+		memCache: memCache,
+		config:   config,
 	}
 
-	archive, err := NewArchiveSpecList(postsDir)
+	archive, err := NewArchiveSpecList(config.PostsDir)
 	if err != nil {
 		logger.Fatal("Could not create archive list: ", err)
 	}

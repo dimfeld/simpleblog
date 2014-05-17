@@ -1,6 +1,7 @@
 IndexPosts = 15
 PostsDir = "testdata/posts"
 DataDir = "testdata"
+CacheDir = "cache"
 TagsPath = "cache/tags.json"
 TagsPageReverseSort = true
 LogFile = "simpleblog.log"

@@ -36,7 +36,7 @@ type TemplateData struct {
 }
 
 func (t TemplateData) HrefFromPostPath(p string) string {
-	relPath, err := filepath.Rel(t.globalData.postsDir, p)
+	relPath, err := filepath.Rel(t.globalData.config.PostsDir, p)
 	if err != nil {
 		relPath = path.Base(p)
 	}
@@ -49,7 +49,7 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 	ps.globalData.RUnlock()
 	if archive == nil {
 
-		archive, err := NewArchiveSpecList(ps.globalData.postsDir)
+		archive, err := NewArchiveSpecList(ps.globalData.config.PostsDir)
 		if err != nil {
 			panic(err)
 		}
@@ -78,12 +78,12 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 	}
 
 	templateData.Archives = ps.globalData.archive
-	tags := NewTags(ps.globalData.tagsPath, ps.globalData.postsDir)
+	tags := NewTags(ps.globalData.config.TagsPath, ps.globalData.config.PostsDir)
 	templateData.Tags = tags.TagsByPopularity()
 
 	debugf("Fill: Got ArchiveList of length %d", len(ps.globalData.archive))
 
-	tem, err := template.ParseFiles(path.Join(string(ps.globalData.dataDir), "templates/main.tmpl.html"))
+	tem, err := template.ParseFiles(path.Join(ps.globalData.config.DataDir, "templates/main.tmpl.html"))
 	if err != nil {
 		panic("Error parsing template: " + err.Error())
 	}
@@ -100,7 +100,7 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 }
 
 func generatePostPage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	postPath := path.Join(globalData.postsDir, params["year"], params["month"], params["post"]) + ".md"
+	postPath := path.Join(globalData.config.PostsDir, params["year"], params["month"], params["post"]) + ".md"
 	post, err := NewPost(postPath, true)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func generatePostPage(globalData *GlobalData, params map[string]string) (PostLis
 }
 
 func generateArchivePage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	archivePath := path.Join(globalData.postsDir, params["year"], params["month"])
+	archivePath := path.Join(globalData.config.PostsDir, params["year"], params["month"])
 	posts, err := LoadPostsFromPath(archivePath, true)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func generateArchivePage(globalData *GlobalData, params map[string]string) (Post
 }
 
 func generateTagsPage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	tags := NewTags(globalData.tagsPath, globalData.postsDir)
+	tags := NewTags(globalData.config.TagsPath, globalData.config.PostsDir)
 	tagName, err := url.QueryUnescape(params["tag"])
 	postNames, ok := tags.Tag[tagName]
 	if err != nil || !ok || len(postNames) == 0 {
@@ -136,7 +136,7 @@ func generateTagsPage(globalData *GlobalData, params map[string]string) (PostLis
 
 	// Sort the post list in the configured order.
 	var sortObj sort.Interface = postList
-	if globalData.tagsPageReverseSort {
+	if globalData.config.TagsPageReverseSort {
 		sortObj = sort.Reverse(sortObj)
 	}
 	sort.Sort(sortObj)
@@ -145,10 +145,10 @@ func generateTagsPage(globalData *GlobalData, params map[string]string) (PostLis
 }
 
 func generateIndexPage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	postList := make(PostList, 0, globalData.indexPosts)
+	postList := make(PostList, 0, globalData.config.IndexPosts)
 
 	for _, current := range globalData.archive {
-		postPath := PostPath(globalData.postsDir, current.Year(), current.Month())
+		postPath := PostPath(globalData.config.PostsDir, current.Year(), current.Month())
 		monthPosts, err := LoadPostsFromPath(postPath, true)
 		if err != nil {
 			return nil, err
@@ -158,7 +158,7 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 		postList = append(postList, monthPosts...)
 
 		// We have enough posts.
-		if len(postList) >= globalData.indexPosts {
+		if len(postList) >= globalData.config.IndexPosts {
 			break
 		}
 	}
@@ -166,15 +166,15 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 	// Sort posts, starting with the most recent.
 	sort.Sort(sort.Reverse(postList))
 
-	if len(postList) > globalData.indexPosts {
-		postList = postList[0:globalData.indexPosts]
+	if len(postList) > globalData.config.IndexPosts {
+		postList = postList[0:globalData.config.IndexPosts]
 	}
 
 	return postList, nil
 }
 
 func generateCustomPage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	pagePath := path.Join(globalData.postsDir, "page", params["page"])
+	pagePath := path.Join(globalData.config.PostsDir, "page", params["page"])
 	post, err := NewPost(pagePath, true)
 	if err != nil {
 		return nil, err

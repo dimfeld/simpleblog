@@ -215,7 +215,7 @@ func (d DirectCacheFiller) Fill(cacheObj gocache.Cache, pathStr string) (gocache
 		compressed = true
 	}
 
-	f, err := d.globalData.dataDir.Open(pathStr)
+	f, err := http.Dir(d.globalData.config.DataDir).Open(pathStr)
 	if err != nil {
 		return gocache.Object{}, err
 	}
