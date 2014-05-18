@@ -2,7 +2,7 @@ Second Post
 5/15/14 12:15AM MDT
 second post, some tag
 
-# This is the second post
+# This is the latest post
 
 Ok...
 
@@ -11,7 +11,7 @@ func readChan(c chan int) bool {
     logger.Println("try read channel")
 
     select {
-    case a := <- c:
+    case a := <-c:
         fmt.Println("Received", a)
         return true
 

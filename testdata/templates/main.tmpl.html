@@ -6,6 +6,8 @@
 <link rel="stylesheet" href="http://yandex.st/highlightjs/8.0/styles/github.min.css">
 <script src="http://yandex.st/highlightjs/8.0/highlight.min.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
+
+<link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
 <h1 name="header">Header</h1>
@@ -14,8 +16,8 @@
 	      implementation would be able to use an arbitrary subtemplate. */}}
 	{{range .Posts }}
     <div class="post">
-		<div class="title">{{.Title}}<div>
-		<div class="permalink">{{HrefFromPostPath .SourcePath}}</div>
+		<h1 class="title">{{.Title}}</h1>
+		<div class="permalink"><a href="{{HrefFromPostPath .SourcePath}}">Link</a></div>
 		<div class="time">{{FormatTime .Timestamp}}</div>
 		<div class="content">{{.HTMLContent false}}</div>
 		<div class="tags">
