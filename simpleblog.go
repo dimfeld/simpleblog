@@ -8,6 +8,7 @@ import (
 	"github.com/dimfeld/goconfig"
 	"github.com/dimfeld/httppath"
 	"github.com/dimfeld/httptreemux"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ var (
 	logger      *log.Logger
 	debugLogger *log.Logger
 	debugMode   bool
+	config      *Config
 )
 
 func debugf(format string, args ...interface{}) {
@@ -40,6 +42,7 @@ func catchSIGINT(f func(), quit bool) {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for _ = range c {
+			logger.Println("SIGINT received...")
 			f()
 			if quit {
 				os.Exit(1)
@@ -50,12 +53,13 @@ func catchSIGINT(f func(), quit bool) {
 
 type GlobalData struct {
 	*sync.RWMutex
-	config *Config
 
 	// General cache
 	cache    gocache.Cache
 	memCache gocache.Cache
-	archive  ArchiveSpecList
+
+	archive   ArchiveSpecList
+	templates *template.Template
 }
 
 type Config struct {
@@ -68,6 +72,8 @@ type Config struct {
 	LogFile             string
 	LogPrefix           string
 	DebugMode           bool
+	Domain              string
+	Port                int
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
@@ -105,8 +111,8 @@ func isDirectory(dirPath string) bool {
 	return true
 }
 
-func main() {
-	config := &Config{}
+func setup() (router *httptreemux.TreeMux, cleanup func()) {
+	config = &Config{Port: 80}
 	confFile := os.Getenv("SIMPLEBLOG_CONFFILE")
 	if len(os.Args) > 1 {
 		confFile = os.Args[1]
@@ -134,6 +140,9 @@ func main() {
 	}
 
 	debugMode = config.DebugMode
+	if config.Port != 80 {
+		config.Domain = fmt.Sprintf("%s:%d", config.Domain, config.Port)
+	}
 
 	logFile, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
 	if err != nil {
@@ -149,9 +158,6 @@ func main() {
 		logFile.Sync()
 		logFile.Close()
 	}
-
-	catchSIGINT(closer, true)
-	defer closer()
 
 	var logWriter io.Writer = logBuffer
 	if debugMode {
@@ -199,12 +205,17 @@ func main() {
 
 	multiLevelCache := gocache.MultiLevel{0: memCache, 1: diskCache}
 
+	templates, err := createTemplates()
+	if err != nil {
+		logger.Fatal("Error parsing template:", err.Error())
+	}
+
 	os.Remove(config.TagsPath)
 	globalData := &GlobalData{
-		RWMutex:  &sync.RWMutex{},
-		cache:    multiLevelCache,
-		memCache: memCache,
-		config:   config,
+		RWMutex:   &sync.RWMutex{},
+		cache:     multiLevelCache,
+		memCache:  memCache,
+		templates: templates,
 	}
 
 	archive, err := NewArchiveSpecList(config.PostsDir)
@@ -215,7 +226,7 @@ func main() {
 
 	go watchFiles(globalData)
 
-	router := httptreemux.New()
+	router = httptreemux.New()
 	router.PanicHandler = httptreemux.ShowErrorsPanicHandler
 
 	router.GET("/", handlerWrapper(indexHandler, globalData))
@@ -227,7 +238,6 @@ func main() {
 	router.GET("/assets/*file", filePrefixWrapper("assets",
 		handlerWrapper(staticCompressHandler, globalData)))
 
-	// No tags yet.
 	router.GET("/tag/:tag", handlerWrapper(tagHandler, globalData))
 	// No pagination yet.
 	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
@@ -235,6 +245,16 @@ func main() {
 	router.GET("/:page", handlerWrapper(pageHandler, globalData))
 	router.GET("/favicon.ico", fileWrapper("assets/favicon.ico",
 		handlerWrapper(staticCompressHandler, globalData)))
+	router.GET("/feed", handlerWrapper(atomHandler, globalData))
 
-	http.ListenAndServe(":8080", router)
+	return router, closer
+}
+
+func main() {
+	router, closer := setup()
+
+	catchSIGINT(closer, true)
+	defer closer()
+
+	http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router)
 }

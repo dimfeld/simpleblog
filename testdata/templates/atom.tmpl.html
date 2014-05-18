@@ -1,0 +1,29 @@
+{{XMLEncoding}}
+{{/* Sample Atom template for simpleblog. Note that if you modify this one, the tests will fail.  */}}
+
+<feed xmlns="http://www.w3.org/2005/Atom">
+ 
+	<title>Simple Blog</title>
+	<subtitle>A subtitle.</subtitle>
+	<link href="http://{{.Domain}}/feed" rel="self" />
+	<link href="http://{{.Domain}}/" />
+	<id>{{AtomFeedRef}}</id>
+	<updated>{{AtomNow}}</updated>
+ 
+ 	{{range .Posts}}
+	<entry>
+		<title>{{.Title}}</title>
+		<link href="{{AtomPostRef .}}" />
+		<id>{{AtomPostRef .}}</id>
+		<updated>{{AtomTime .Timestamp}}</updated>
+                <content type="xhtml">
+                      {{.HTMLContent true}}
+                </content>
+                <author>
+                      <name>Simple Blogger</name>
+                      <email>someblogger@example.com</email>
+               </author>
+	</entry>
+	{{end}}
+ 
+</feed>

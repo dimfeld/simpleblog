@@ -1,5 +1,4 @@
-{{/* Sample template for simpleblog. Note that if you modify this one, the tests will fail. 
-      The actual application uses the main.tmpl.html from the data directory. */}}
+{{/* Sample template for simpleblog. Note that if you modify this one, the tests may fail. */}}
 
 <html>
 <body>
@@ -10,9 +9,9 @@
 	{{range .Posts }}
     <div class="post">
 		<div class="title">{{.Title}}<div>
-		<div class="permalink">{{$.HrefFromPostPath .SourcePath}}</div>
-		<div class="time">{{.Timestamp}}</div>
-		<div class="content">{{.HTMLContent}}</div>
+		<div class="permalink">{{HrefFromPostPath .SourcePath}}</div>
+		<div class="time">{{FormatTime .Timestamp}}</div>
+		<div class="content">{{.HTMLContent false}}</div>
 		<div class="tags">
 			<ul>
 			   {{range .Tags}}
@@ -24,8 +23,8 @@
     {{else}}
     <div class="post">
 		<div class="title">{{.Page.Title}}<div>
-		<div class="permalink">{{.HrefFromPostPath .Page.SourcePath}}</div>
-		<div class="content">{{.Page.HTMLContent}}</div>
+		<div class="permalink">{{HrefFromPostPath .Page.SourcePath}}</div>
+		<div class="content">{{.Page.HTMLContent false}}</div>
 	</div>
     {{end}}
 </div>

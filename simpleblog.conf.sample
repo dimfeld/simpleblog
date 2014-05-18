@@ -7,3 +7,5 @@ TagsPageReverseSort = true
 LogFile = "simpleblog.log"
 LogPrefix = ""
 DebugMode = true
+Domain = "localhost"
+Port = 8080

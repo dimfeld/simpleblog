@@ -59,7 +59,8 @@ func postHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath, compression := determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, false, generatePostPage, urlParams})
+		PageSpec{globalData: globalData, customPage: false,
+			generator: generatePostPage, params: urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -84,7 +85,8 @@ func archiveHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath, compression := determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, false, generateArchivePage, urlParams})
+		PageSpec{globalData: globalData, customPage: false,
+			generator: generateArchivePage, params: urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -100,7 +102,8 @@ func tagHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath, compression := determineCompression(w, r, filePath)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, false, generateTagsPage, urlParams})
+		PageSpec{globalData: globalData, customPage: false,
+			generator: generateTagsPage, params: urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -116,7 +119,8 @@ func indexHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath, compression := determineCompression(w, r, filename)
 
 	data, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, false, generateIndexPage, urlParams})
+		PageSpec{globalData: globalData, customPage: false,
+			generator: generateIndexPage, params: urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -132,13 +136,31 @@ func pageHandler(globalData *GlobalData, w http.ResponseWriter,
 
 	filePath, compression := determineCompression(w, r, page)
 	object, err := globalData.cache.Get(filePath,
-		PageSpec{globalData, true, generateCustomPage, urlParams})
+		PageSpec{globalData: globalData, customPage: true,
+			generator: generateCustomPage, params: urlParams})
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 
 	sendData(w, r, urlParams["page"], compression, object)
+}
+
+func atomHandler(globalData *GlobalData, w http.ResponseWriter,
+	r *http.Request, urlParams map[string]string) {
+
+	filename := "atom.xml"
+	filePath, compression := determineCompression(w, r, filename)
+
+	object, err := globalData.cache.Get(filePath,
+		PageSpec{globalData: globalData, customTemplate: "atom.tmpl.html",
+			generator: generateIndexPage, params: urlParams})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	sendData(w, r, filename, compression, object)
 }
 
 func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
@@ -215,7 +237,7 @@ func (d DirectCacheFiller) Fill(cacheObj gocache.Cache, pathStr string) (gocache
 		compressed = true
 	}
 
-	f, err := http.Dir(d.globalData.config.DataDir).Open(pathStr)
+	f, err := http.Dir(config.DataDir).Open(pathStr)
 	if err != nil {
 		return gocache.Object{}, err
 	}

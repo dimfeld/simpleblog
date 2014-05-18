@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/russross/blackfriday"
+	"github.com/dimfeld/blackfriday"
 	"html/template"
 	"os"
 	"path"
@@ -108,13 +108,20 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 	return
 }
 
-func (p *Post) HTMLContent() template.HTML {
+func (p *Post) HTMLContent(atom bool) template.HTML {
 	htmlFlags := 0
 	htmlFlags |= blackfriday.HTML_USE_XHTML
-	htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
-	htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
-	htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
-	renderer := blackfriday.HtmlRenderer(htmlFlags, "", "")
+
+	if atom {
+		htmlFlags |= blackfriday.HTML_ABSOLUTE_LINKS
+	} else {
+		htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
+		htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
+		htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
+	}
+
+	domain := "http://" + config.Domain
+	renderer := blackfriday.HtmlRenderer(htmlFlags, "", "", domain)
 
 	// set up the parser
 	extensions := 0
@@ -126,7 +133,9 @@ func (p *Post) HTMLContent() template.HTML {
 	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
 	extensions |= blackfriday.EXTENSION_HEADER_IDS
 
-	return template.HTML(blackfriday.Markdown(p.Content, renderer, extensions))
+	content := blackfriday.Markdown(p.Content, renderer, extensions)
+
+	return template.HTML(content)
 }
 
 func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
@@ -138,7 +147,8 @@ func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 			if info == nil {
 				return os.ErrNotExist
 			}
-			if info.IsDir() {
+			if info.IsDir() || path.Base(filePath)[0] == '.' {
+				// Skip directories and files starting with dot.
 				return nil
 			}
 			debug("LoadPostsFromPath: Loading", filePath)

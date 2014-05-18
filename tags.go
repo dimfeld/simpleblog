@@ -78,6 +78,8 @@ func (tags *Tags) Generate(postPath string) error {
 	// Walk through postPath, finding all posts.
 	// On each file that successfully parses, add it to the map.
 
+	debug("Generating tags file")
+
 	err := tags.readPosts(postPath)
 	if err != nil {
 		return err
