@@ -98,7 +98,7 @@ func fileWrapper(filename string, handler httptreemux.HandlerFunc) httptreemux.H
 
 func filePrefixWrapper(prefix string, handler httptreemux.HandlerFunc) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
-		urlParams["file"] = "/" + filepath.Join(prefix, httppath.Clean(urlParams["file"]))
+		urlParams["file"] = filepath.Join(prefix, httppath.Clean(urlParams["file"]))
 		handler(w, r, urlParams)
 	}
 }
