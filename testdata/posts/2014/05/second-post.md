@@ -5,3 +5,19 @@ second post, some tag
 # This is the second post
 
 Ok...
+
+````go
+func readChan(c chan int) bool {
+    logger.Println("try read channel")
+
+    select {
+    case a := <- c:
+        fmt.Println("Received", a)
+        return true
+
+    default:
+        fmt.Println("Channel not ready")
+        return false, 5
+    }
+}
+````
