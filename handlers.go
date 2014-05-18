@@ -168,6 +168,7 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := urlParams["file"]
 	filePath, compression := determineCompression(w, r, filePath)
 
+	debug("Getting path", filePath)
 	object, err := globalData.cache.Get(filePath,
 		DirectCacheFiller{globalData, true})
 	if err != nil {
@@ -220,6 +221,18 @@ func sendData(w http.ResponseWriter, r *http.Request, name string,
 		w.Header().Set("Content-Encoding", "gzip")
 	}
 
+	debugf("Sending data for %s%s [%d]",
+		name,
+		func() string {
+			if compression {
+				return ".gz"
+			} else {
+				return ""
+			}
+		}(),
+		len(object.Data),
+	)
+
 	reader := bytes.NewReader(object.Data)
 	http.ServeContent(w, r, name, object.ModTime, reader)
 }
@@ -255,7 +268,9 @@ func (d DirectCacheFiller) Fill(cacheObj gocache.Cache, pathStr string) (gocache
 	}
 
 	if d.canCompress {
-		compressedObj, uncompressedObj, err := gocache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
+		uncompressedObj, compressedObj, err := gocache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
+		debugf("%s: compressed %d, uncompressed %d",
+			pathStr, len(compressedObj.Data), len(uncompressedObj.Data))
 		if compressed {
 			return compressedObj, err
 		} else {
