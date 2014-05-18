@@ -74,6 +74,11 @@ type Config struct {
 	DebugMode           bool
 	Domain              string
 	Port                int
+
+	LargeMemCacheLimit       int
+	SmallMemCacheLimit       int
+	LargeMemCacheObjectLimit int
+	SmallMemCacheObjectLimit int
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
@@ -112,7 +117,15 @@ func isDirectory(dirPath string) bool {
 }
 
 func setup() (router *httptreemux.TreeMux, cleanup func()) {
-	config = &Config{Port: 80}
+	config = &Config{
+		Port: 80,
+		// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
+		LargeMemCacheLimit:       64 * 1024 * 1024,
+		LargeMemCacheObjectLimit: 8 * 1024 * 1024,
+		// Small memory cache uses 16 MiB at most, with the largest object being 16KiB.
+		SmallMemCacheLimit:       16 * 1024 * 1024,
+		SmallMemCacheObjectLimit: 16 * 1024,
+	}
 	confFile := os.Getenv("SIMPLEBLOG_CONFFILE")
 	if len(os.Args) > 1 {
 		confFile = os.Args[1]
@@ -190,12 +203,13 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		logger.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "images"))
 	}
 
-	// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
-	largeObjectLimit := 8 * 1024 * 1024
-	largeMemCache := gocache.NewMemoryCache(64*1024*1024, largeObjectLimit)
-	// Small memory cache uses 16 MiB at most, with the largest object being 16KiB.
-	smallObjectLimit := 16 * 1024
-	smallMemCache := gocache.NewMemoryCache(16*1024*1024, smallObjectLimit)
+	largeObjectLimit := config.LargeMemCacheObjectLimit
+	largeMemCache := gocache.NewMemoryCache(
+		config.LargeMemCacheLimit, largeObjectLimit)
+
+	smallObjectLimit := config.SmallMemCacheObjectLimit
+	smallMemCache := gocache.NewMemoryCache(
+		config.SmallMemCacheLimit, smallObjectLimit)
 
 	// Create a split cache, putting all objects smaller than 16 KiB into the small cache.
 	// This split cache prevents a few large objects from evicting all the smaller objects.
