@@ -39,10 +39,10 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	// Get the cache path, relative to either the data directory or the post directory.
 	cachePath, err := filepath.Rel(config.PostsDir, fullPath)
 	isPost := true
-	if err != nil {
+	if err != nil || strings.HasPrefix(cachePath, "..") {
 		cachePath, err = filepath.Rel(config.DataDir, fullPath)
 		isPost = false
-		if err != nil {
+		if err != nil || strings.HasPrefix(cachePath, "..") {
 			logger.Printf("Path %s is not in data or posts dir")
 			return
 		}
@@ -53,7 +53,7 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 	// Same for when a template is updated since that affects every page.
 	templateUpdate := strings.Contains(cachePath, "templates/")
 	if isPost || templateUpdate {
-		debug("FsWatcher clearing post data for update of", fullPath)
+		debug("FsWatcher clearing post data for update of", cachePath)
 
 		newArchiveList, err := NewArchiveSpecList(config.PostsDir)
 		if err != nil {
@@ -78,7 +78,7 @@ func handleFileEvent(globalData *GlobalData, event *fsnotify.FileEvent) {
 
 	} else {
 		// It's some other data, so just invalidate that one object from the cache.
-		debug("FsWatcher clearing data for", fullPath)
+		debug("FsWatcher clearing data for", cachePath)
 		globalData.cache.Del(cachePath)
 		globalData.cache.Del(cachePath + ".gz")
 	}
