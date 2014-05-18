@@ -33,6 +33,7 @@ var writeCapturer *WriteCapturer
 func init() {
 	writeCapturer = &WriteCapturer{}
 	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
+	config = &Config{}
 }
 
 func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine bool,
@@ -139,7 +140,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 		t.Errorf("Expected content: %s\nSaw content: %s", content)
 	}
 
-	htmlContent := string(postWithContent.HTMLContent())
+	htmlContent := string(postWithContent.HTMLContent(false))
 
 	if len(content) != 0 {
 		for _, expectedHTML := range testHTML {
