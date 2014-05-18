@@ -186,7 +186,7 @@ func generateTagsPage(globalData *GlobalData, params map[string]string) (PostLis
 
 	// Sort the post list in the configured order.
 	var sortObj sort.Interface = postList
-	if config.TagsPageReverseSort {
+	if config.TagsPageNewestFirst {
 		sortObj = sort.Reverse(sortObj)
 	}
 	sort.Sort(sortObj)

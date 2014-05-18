@@ -63,22 +63,34 @@ type GlobalData struct {
 }
 
 type Config struct {
-	IndexPosts          int
-	PostsDir            string
-	DataDir             string
-	CacheDir            string
-	TagsPath            string
-	TagsPageReverseSort bool
-	LogFile             string
-	LogPrefix           string
-	DebugMode           bool
-	Domain              string
-	Port                int
+	// Number of posts to display on the main page.
+	IndexPosts int
+	// True if tage page should sort
+	TagsPageNewestFirst bool
+
+	// Directory to search for posts.
+	PostsDir string
+	// Directory to search for static data.
+	DataDir string
+	// Directory to use for the disk cache.
+	CacheDir string
+	// File path to store tags.json.
+	TagsPath string
+
+	LogFile   string
+	LogPrefix string
+	// Flush the log every X seconds.
+	LogFlushPeriod int
+
+	Domain string
+	Port   int
 
 	LargeMemCacheLimit       int
 	SmallMemCacheLimit       int
 	LargeMemCacheObjectLimit int
 	SmallMemCacheObjectLimit int
+
+	DebugMode bool
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
@@ -116,9 +128,23 @@ func isDirectory(dirPath string) bool {
 	return true
 }
 
+func LogFlusher(w *bufio.Writer, period time.Duration, quit chan int) {
+	ticker := time.NewTicker(period)
+	for {
+		select {
+		case <-ticker.C:
+			w.Flush()
+		case <-quit:
+			ticker.Stop()
+			break
+		}
+	}
+}
+
 func setup() (router *httptreemux.TreeMux, cleanup func()) {
 	config = &Config{
-		Port: 80,
+		LogFlushPeriod: 2,
+		Port:           80,
 		// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
 		LargeMemCacheLimit:       64 * 1024 * 1024,
 		LargeMemCacheObjectLimit: 8 * 1024 * 1024,
@@ -165,7 +191,13 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	logBuffer := bufio.NewWriter(logFile)
 
+	logFlusherQuit := make(chan int)
+	go LogFlusher(logBuffer,
+		time.Duration(config.LogFlushPeriod)*time.Second,
+		logFlusherQuit)
+
 	closer := func() {
+		logFlusherQuit <- 1
 		logger.Println("Shutting down...")
 		logBuffer.Flush()
 		logFile.Sync()
