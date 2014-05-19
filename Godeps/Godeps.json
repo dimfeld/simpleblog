@@ -4,26 +4,43 @@
 	"Deps": [
 		{
 			"ImportPath": "code.google.com/p/go.net/html",
-			"Comment": "null-126",
-			"Rev": "53130366067a9f0b47893ae8a81677391fdd0f42"
+			"Comment": "null-127",
+			"Rev": "f3fd9e904a78a07c31a9005f0a56f750275f5e88"
+		},
+		{
+			"ImportPath": "github.com/BurntSushi/toml",
+			"Rev": "a5e2f9c104834ecbf3963d2cc69ea0619f3f441d"
+		},
+		{
+			"ImportPath": "github.com/dimfeld/blackfriday",
+			"Comment": "v1.1-121-g5c12499",
+			"Rev": "5c12499aa1ddda74561fb899c394f01fd1e8e9e6"
 		},
 		{
 			"ImportPath": "github.com/dimfeld/gocache",
-			"Rev": "86207e8cedcb04fb3ba57a726edf10f248f4e1aa"
+			"Rev": "b949c4ca21d52e36a0f6104c2386fb956c312c9b"
+		},
+		{
+			"ImportPath": "github.com/dimfeld/goconfig",
+			"Comment": "v1.0-1-g0e82995",
+			"Rev": "0e829955be46348b208f970f5b36e37eb2d98c32"
+		},
+		{
+			"ImportPath": "github.com/dimfeld/httppath",
+			"Rev": "c8e499c3ef3c3e272ed8bdcc1ccf39f73c88debc"
+		},
+		{
+			"ImportPath": "github.com/dimfeld/httptreemux",
+			"Rev": "71df0ab462b8f16887485dd74df9968b9ddd400a"
+		},
+		{
+			"ImportPath": "github.com/dimfeld/treewatcher",
+			"Rev": "9c24374116f2c12c4dbd3c388ead88bec941319b"
 		},
 		{
 			"ImportPath": "github.com/howeyc/fsnotify",
 			"Comment": "v0.9.0",
 			"Rev": "441bbc86b167f3c1f4786afae9931403b99fdacf"
-		},
-		{
-			"ImportPath": "github.com/julienschmidt/httprouter",
-			"Rev": "9b1fa09c72280f35b53536e843664c0c205987c8"
-		},
-		{
-			"ImportPath": "github.com/russross/blackfriday",
-			"Comment": "v1.1-115-gf3ab184",
-			"Rev": "f3ab1849e6b17a1564b9088d01fee399a83cddd7"
 		}
 	]
 }
