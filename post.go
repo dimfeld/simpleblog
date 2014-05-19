@@ -148,8 +148,10 @@ func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 			if info == nil {
 				return os.ErrNotExist
 			}
-			if info.IsDir() || path.Base(filePath)[0] == '.' {
-				// Skip directories and files starting with dot.
+			if info.IsDir() ||
+				path.Base(filePath)[0] == '.' ||
+				!strings.HasSuffix(filePath, ".md") {
+				// Skip directories, files starting with dot, and non-MD files.
 				return nil
 			}
 			debug("LoadPostsFromPath: Loading", filePath)

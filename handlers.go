@@ -143,7 +143,7 @@ func pageHandler(globalData *GlobalData, w http.ResponseWriter,
 		return
 	}
 
-	sendData(w, r, urlParams["page"], compression, object)
+	sendData(w, r, urlParams["page"]+".html", compression, object)
 }
 
 func atomHandler(globalData *GlobalData, w http.ResponseWriter,

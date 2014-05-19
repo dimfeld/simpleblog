@@ -235,7 +235,7 @@ func createTestPosts(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid time in createTestPosts #0")
 	}
-	testPosts[0] = &Post{"2014/02/test-post1",
+	testPosts[0] = &Post{"2014/02/test-post1.md",
 		"TestPost1",
 		postTime,
 		[]string{"tag1", "tag2"},
@@ -245,7 +245,7 @@ func createTestPosts(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid time in createTestPosts #0")
 	}
-	testPosts[1] = &Post{"2014/02/test-post2",
+	testPosts[1] = &Post{"2014/02/test-post2.md",
 		"TestPost2",
 		postTime,
 		[]string{"tag1"},
@@ -255,7 +255,7 @@ func createTestPosts(t *testing.T) {
 	if err != nil {
 		t.Fatal("Invalid time in createTestPosts #0")
 	}
-	testPosts[2] = &Post{"2012/02/test-post3",
+	testPosts[2] = &Post{"2012/02/test-post3.md",
 		"TestPost3",
 		postTime,
 		[]string{"tag2"},
@@ -334,9 +334,9 @@ func TestLoadPostsFromPath(t *testing.T) {
 	}
 
 	t.Log("Loading 3 valid posts")
-	expectedSorted := []string{"2012/02/test-post3",
-		"2014/02/test-post1",
-		"2014/02/test-post2"}
+	expectedSorted := []string{"2012/02/test-post3.md",
+		"2014/02/test-post1.md",
+		"2014/02/test-post2.md"}
 	for i, val := range expectedSorted {
 		expectedSorted[i] = path.Join(dir, val)
 	}
@@ -346,9 +346,24 @@ func TestLoadPostsFromPath(t *testing.T) {
 
 	checkPostList(postList, expectedSorted)
 
+	t.Log("Test with a non-.md post")
+	writeCapturer.Clear()
+	nonMdPost := &Post{"2012/02/other-post.txt",
+		"TestPost4",
+		time.Now(),
+		[]string{"tag2"},
+		[]byte("content")}
+	writePost(t, dir, nonMdPost)
+	nonMdPost.SourcePath = "2012/02/.somepost.md"
+	writePost(t, dir, nonMdPost)
+
+	postList, err = LoadPostsFromPath(dir, true)
+	sort.Sort(postList)
+	checkPostList(postList, expectedSorted)
+
 	t.Log("Testing with 3 valid posts and 1 invalid post")
 	writeCapturer.Clear()
-	ioutil.WriteFile(path.Join(dir, "2012/02/invalidpost"), []byte("Invalid post"), 0666)
+	ioutil.WriteFile(path.Join(dir, "2012/02/invalidpost.md"), []byte("Invalid post"), 0666)
 	postList, err = LoadPostsFromPath(dir, true)
 	if err == nil {
 		t.Error("LoadPostsFromPath did not propagate error from NewPost")

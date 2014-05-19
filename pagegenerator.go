@@ -42,7 +42,7 @@ func HrefFromPostPath(p string) template.HTML {
 	if err != nil {
 		relPath = path.Base(p)
 	}
-	return template.HTML(relPath[:len(relPath)-3])
+	return template.HTML("/" + relPath[:len(relPath)-3])
 }
 
 func FormatTime(timestamp time.Time) template.HTML {
@@ -224,7 +224,7 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 }
 
 func generateCustomPage(globalData *GlobalData, params map[string]string) (PostList, error) {
-	pagePath := path.Join(config.PostsDir, "page", params["page"])
+	pagePath := path.Join(config.PostsDir, "page", params["page"]) + ".md"
 	post, err := NewPost(pagePath, true)
 	if err != nil {
 		return nil, err
