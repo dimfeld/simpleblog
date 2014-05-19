@@ -24,3 +24,7 @@ _testmain.go
 
 Godeps/_workspace
 .DS_Store
+
+cache
+simpleblog.log
+simpleblog
