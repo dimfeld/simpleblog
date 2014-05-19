@@ -288,8 +288,6 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		handlerWrapper(staticCompressHandler, globalData)))
 
 	router.GET("/tag/:tag", handlerWrapper(tagHandler, globalData))
-	// No pagination yet.
-	//router.GET("/tag/:tag/:page", handlerWrapper(tagHandler, globalData))
 
 	router.GET("/:page", handlerWrapper(pageHandler, globalData))
 	router.GET("/favicon.ico", fileWrapper("assets/favicon.ico",
