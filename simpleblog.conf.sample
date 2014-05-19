@@ -1,12 +1,16 @@
-IndexPosts = 15
 PostsDir = "testdata/posts"
 DataDir = "testdata"
 CacheDir = "cache"
 TagsPath = "cache/tags.json"
+
+IndexPosts = 15
 TagsPageNewestFirst = true
 ArchiveListNewestFirst = true
+
 LogFile = "simpleblog.log"
 LogPrefix = ""
-DebugMode = true
+
 Domain = "localhost"
 Port = 8080
+
+DebugMode = false
