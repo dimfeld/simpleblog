@@ -392,8 +392,8 @@ func TestArchiveSpecList(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	expectedSpecList := ArchiveSpecList{
-		ArchiveSpec(time.Date(2014, time.Month(02), 1, 1, 1, 1, 1, time.UTC)),
 		ArchiveSpec(time.Date(2012, time.Month(02), 1, 1, 1, 1, 1, time.UTC)),
+		ArchiveSpec(time.Date(2014, time.Month(02), 1, 1, 1, 1, 1, time.UTC)),
 	}
 
 	t.Log("Test normal spec list creation")
@@ -404,12 +404,12 @@ func TestArchiveSpecList(t *testing.T) {
 	sort.Sort(specList)
 	checkSpecList(expectedSpecList, specList)
 
-	href := specList[0].Href()
+	href := specList[1].Href()
 	if href != "/2014/02" {
 		t.Errorf("Expected href %s, saw %s", "/2014/02", href)
 	}
 
-	text := specList[0].String()
+	text := specList[1].String()
 	if text != "Feb 2014" {
 		t.Errorf("Expected text %s, saw %s", "Feb 2014", "text")
 	}
@@ -419,6 +419,11 @@ func TestArchiveSpecList(t *testing.T) {
 	os.Mkdir(path.Join(dir, "2012", "abc"), 0755)
 	specList, err = NewArchiveSpecList(dir)
 	sort.Sort(specList)
+	checkSpecList(expectedSpecList, specList)
+
+	t.Log("Test reverse sort")
+	expectedSpecList[0], expectedSpecList[1] = expectedSpecList[1], expectedSpecList[0]
+	sort.Sort(sort.Reverse(specList))
 	checkSpecList(expectedSpecList, specList)
 
 	_, err = NewArchiveSpecList("/jklsdfnkjlse kslef")
