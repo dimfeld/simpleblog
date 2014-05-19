@@ -234,8 +234,7 @@ func generateCustomPage(globalData *GlobalData, params map[string]string) (PostL
 }
 
 func (l ArchiveSpecList) Less(i, j int) bool {
-	// Reverse sort so the most recent is first.
-	return time.Time(l[i]).After(time.Time(l[j]))
+	return time.Time(l[i]).Before(time.Time(l[j]))
 }
 
 func (l ArchiveSpecList) Len() int {

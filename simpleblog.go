@@ -65,8 +65,10 @@ type GlobalData struct {
 type Config struct {
 	// Number of posts to display on the main page.
 	IndexPosts int
-	// True if tage page should sort
+	// True if /tag/<tag> should sort posts in descending order.
 	TagsPageNewestFirst bool
+	// True if archive list at the bottom should start with the latest month.
+	ArchiveListNewestFirst bool
 
 	// Directory to search for posts.
 	PostsDir string
@@ -302,5 +304,5 @@ func main() {
 	catchSIGINT(closer, true)
 	defer closer()
 
-	http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router)
+	logger.Println(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router))
 }

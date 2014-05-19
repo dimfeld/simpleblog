@@ -4,6 +4,7 @@ DataDir = "testdata"
 CacheDir = "cache"
 TagsPath = "cache/tags.json"
 TagsPageNewestFirst = true
+ArchiveListNewestFirst = true
 LogFile = "simpleblog.log"
 LogPrefix = ""
 DebugMode = true

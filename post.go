@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -230,6 +231,13 @@ func NewArchiveSpecList(postBase string) (ArchiveSpecList, error) {
 			list = append(list, ArchiveSpec(spec))
 		}
 	}
+
+	var sortObj sort.Interface = list
+	if config.ArchiveListNewestFirst {
+		sortObj = sort.Reverse(sortObj)
+	}
+	sort.Sort(sortObj)
+
 	return list, nil
 }
 
