@@ -154,13 +154,13 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		SmallMemCacheLimit:       16 * 1024 * 1024,
 		SmallMemCacheObjectLimit: 16 * 1024,
 	}
-	confFile := os.Getenv("SIMPLEBLOG_CONFFILE")
+	confFile := os.Getenv("SIMPLEBLOG_CONF")
 	if len(os.Args) > 1 {
 		confFile = os.Args[1]
 	}
 
 	if confFile == "" {
-		confFile = "simpleblog.conf"
+		confFile = os.Args[0] + ".conf"
 	}
 
 	var confReader io.Reader = os.Stdin
