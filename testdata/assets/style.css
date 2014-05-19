@@ -1,4 +1,55 @@
+body {
+	font-family:sans-serif;
+	background-color: #F0F0F0;
+}
+
+#header {
+	background-color:silver;
+	padding-top:1em;
+	padding-bottom:1em;
+}
+
+#header h1 {
+	margin-top:0;
+	font-weight:bold;
+}
+
+.title {
+	margin-bottom: 0px;
+}
+
+header {
+	border-bottom:thin solid #C0C0C0;
+}
+
+.permalink {
+	text-decoration: none;
+}
+
 .post {
-	border-top: thin solid gray;
-	border-bottom: thin solid gray;
+	margin-bottom:5em;
+}
+
+.post .tags {
+	display:inline;
+	padding:0;
+	float:right;
+}
+
+.list-inline li {
+	display:inline-block;
+}
+
+#sidebar {
+	text-align: center;
+}
+
+#footertext {
+	margin-top:2em;
+}
+
+#footertext p {
+	text-align:center;
+	margin-top:0px;
+	margin-bottom:0px;
 }

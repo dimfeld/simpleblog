@@ -1,55 +1,76 @@
+<!DOCTYPE html>
 {{/* Sample template for simpleblog. Note that if you modify this one, the tests may fail. */}}
 
-<html>
+<html lang="en">
 <head>
-<!-- Highlighing from highlight.js -->
-<link rel="stylesheet" href="http://yandex.st/highlightjs/8.0/styles/github.min.css">
-<script src="http://yandex.st/highlightjs/8.0/highlight.min.js"></script>
-<script>hljs.initHighlightingOnLoad();</script>
-
+<title>Simple Blog</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-<h1 name="header">Header</h1>
-<div name="content">
-	{{/* Everything is either a list of posts, or a single post stored in .Page. A more general
-	      implementation would be able to use an arbitrary subtemplate. */}}
+
+<nav id="header" min-width="100%">
+<h1>Header</h1>
+</nav>
+
+<main id="posts">
+	{{/* Everything is either a list of posts, or a single post stored in .Page. 
+	A more general implementation would be able to use an arbitrary subtemplate. */}}
 	{{range .Posts }}
-    <div class="post">
+    <article class="post">
+    <header>
 		<h1 class="title">{{.Title}}</h1>
-		<div class="permalink"><a href="{{HrefFromPostPath .SourcePath}}">Link</a></div>
-		<div class="time">{{FormatTime .Timestamp}}</div>
-		<div class="content">{{.HTMLContent false}}</div>
-		<div class="tags">
-			<ul>
-			   {{range .Tags}}
-			   <li>{{.}}</li>
-			   {{end}}
-		   </ul>
-		</div>
-	</div>
+		<div class="metadata">
+			<time datetime="{{.Timestamp}}" pubdate="pubdate">{{FormatTime .Timestamp}}</time>  <a class="permalink" href="{{HrefFromPostPath .SourcePath}}" title="Permalink">∞</a>
+		
+			<ul class="tags list-inline">
+			    {{range .Tags}}
+			    <li><a href="/tag/{{urlquery .}}">{{.}}</a></li>
+			    {{end}}
+	   		</ul>
+	   </div>
+	</header>
+	<div class="content">{{.HTMLContent false}}</div>	
+	</article>
     {{else}}
-    <div class="post">
-		<div class="title">{{.Page.Title}}<div>
-		<div class="permalink">{{HrefFromPostPath .Page.SourcePath}}</div>
+    <article class="post">
+	    <header>
+			<div class="title">{{.Page.Title}}<div>
+		</header>
 		<div class="content">{{.Page.HTMLContent false}}</div>
-	</div>
+	</article>
     {{end}}
+</main>
+
+<nav id="sidebar">
+
+	<div id="tags">
+		<h3>Tags</h3>
+		<ul class="list-inline">
+			{{range .Tags}}
+			<li><a href="/tag/{{urlquery .Tag}}">{{.Tag}} ({{.Count}})</a></li>
+			{{end}}
+		</ul>
+	</div>
+
+	<div id="archives" >
+		<h3>Archives</h3>
+		<ul class="archive list-inline">
+		    {{range .Archives }}
+		    <li><a href="{{.Href}}">{{.String}}</a></li>
+		    {{end}}
+	    </ul>
+	</div>
+
+</nav>
+
+<div id="footertext">
+	<p>Contact me at fakemail@example.com</p>
 </div>
-<div name="tags">
-	<ul>
-		{{range .Tags}}
-		<li><a href="/tag/{{urlquery .Tag}}">{{.Tag}} ({{.Count}})</a></li>
-		{{end}}
-	</ul>
+
 </div>
-<div name="archives">
-	<ul>
-   {{range .Archives }}
-   <li class="archive"><a href="{{.Href}}">{{.String}}</a></li>
-   {{end}}
-   </ul>
+
 </div>
-<h1 name="footer">Footer</h1>
+
 </body>
 </html>
