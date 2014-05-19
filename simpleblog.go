@@ -181,9 +181,6 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 	}
 
 	debugMode = config.DebugMode
-	if config.Port != 80 {
-		config.Domain = fmt.Sprintf("%s:%d", config.Domain, config.Port)
-	}
 
 	logFile, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
 	if err != nil {
@@ -214,7 +211,11 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	logger = log.New(logWriter, config.LogPrefix, log.LstdFlags)
 	debugLogger = log.New(logWriter, "DEBUG ", log.LstdFlags)
-	logger.Println("Starting...")
+	logger.Printf("Starting with config\n%+v\n", config)
+
+	if config.Port != 80 {
+		config.Domain = fmt.Sprintf("%s:%d", config.Domain, config.Port)
+	}
 
 	diskCache, err := gocache.NewDiskCache(config.CacheDir)
 	if err != nil {
