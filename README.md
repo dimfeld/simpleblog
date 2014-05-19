@@ -18,6 +18,8 @@ While writing this project, I created a number of useful libraries for [caching]
 Direct your browser to http://localhost:8080
 ```
 
+The default template and CSS are intentionally minimal, but should function as an easy skeleton to add your own styling.
+
 ### Acknowledgements
 
 * [blackfriday](https://github.com/russross/blackfriday) for Markdown->HTML conversion.
