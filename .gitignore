@@ -32,3 +32,5 @@ simpleblog
 simpleblog*INFO*
 simpleblog*WARNING*
 simpleblog*ERROR*
+simpleblog*FATAL*
+logs
