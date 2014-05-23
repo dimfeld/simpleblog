@@ -7,8 +7,7 @@ IndexPosts = 15
 TagsPageNewestFirst = true
 ArchiveListNewestFirst = true
 
-LogFile = "simpleblog.log"
-LogPrefix = ""
+LogDir = "logs"
 
 Domain = "localhost"
 Port = 8080
