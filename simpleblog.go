@@ -161,7 +161,7 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		glog.Flush()
 	}
 
-	glog.Infoln("Starting with config\n%+v\n", config)
+	glog.Infof("Starting with config\n%+v\n", config)
 
 	if config.Port != 80 {
 		config.Domain = fmt.Sprintf("%s:%d", config.Domain, config.Port)
@@ -169,23 +169,23 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	diskCache, err := gocache.NewDiskCache(config.CacheDir)
 	if err != nil {
-		glog.Fatal("Could not create disk cache in", config.CacheDir)
+		glog.Fatal("Could not create disk cache in ", config.CacheDir)
 	}
 
 	if !isDirectory(config.DataDir) {
-		glog.Fatal("Could not find data directory", config.DataDir)
+		glog.Fatal("Could not find data directory ", config.DataDir)
 	}
 
 	if !isDirectory(config.PostsDir) {
-		glog.Fatal("Could not find posts directory", config.PostsDir)
+		glog.Fatal("Could not find posts directory ", config.PostsDir)
 	}
 
 	if !isDirectory(filepath.Join(config.DataDir, "assets")) {
-		glog.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "assets"))
+		glog.Fatal("Could not find assets directory ", filepath.Join(config.DataDir, "assets"))
 	}
 
 	if !isDirectory(filepath.Join(config.DataDir, "images")) {
-		glog.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "images"))
+		glog.Fatal("Could not find assets directory ", filepath.Join(config.DataDir, "images"))
 	}
 
 	largeObjectLimit := config.LargeMemCacheObjectLimit
@@ -206,7 +206,7 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	templates, err := createTemplates()
 	if err != nil {
-		glog.Fatal("Error parsing template:", err.Error())
+		glog.Fatal("Error parsing template: ", err.Error())
 	}
 
 	os.Remove(config.TagsPath)
