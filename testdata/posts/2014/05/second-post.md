@@ -1,5 +1,5 @@
 Second Post
-5/15/14 12:15AM MDT
+5/15/14 12:15AM -0500
 second post, some tag
 
 # This is the latest post

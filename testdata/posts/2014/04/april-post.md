@@ -1,5 +1,5 @@
 April Showers
-4/01/14 4:15PM MST
+4/01/14 4:15PM -0700
 rain, more rain, some tag
 
 Bring May flowers? I guess so.

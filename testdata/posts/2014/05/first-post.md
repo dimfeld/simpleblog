@@ -1,5 +1,5 @@
 Test Post 1
-5/14/14 11:14PM MDT
+5/14/14 11:14PM -0500
 first post, some tag
 
 # This is a post

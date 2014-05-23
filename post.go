@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const PostTimeFormat string = "1/2/06 3:04PM MST"
+const PostTimeFormat string = "1/2/06 3:04PM -0700"
 
 type PostList []*Post
 
