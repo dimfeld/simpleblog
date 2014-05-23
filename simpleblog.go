@@ -96,6 +96,9 @@ func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httptreem
 
 func fileWrapper(filename string, handler httptreemux.HandlerFunc) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
+		if urlParams == nil {
+			urlParams = make(map[string]string)
+		}
 		urlParams["file"] = filename
 		handler(w, r, urlParams)
 	}
@@ -301,6 +304,8 @@ func setup() (router *httptreemux.TreeMux, listener net.Listener, cleanup func()
 	router.GET("/:page", handlerWrapper(pageHandler, globalData))
 	router.GET("/favicon.ico", fileWrapper("assets/favicon.ico",
 		handlerWrapper(staticCompressHandler, globalData)))
+	router.GET("/robots.txt", fileWrapper("assets/robots.txt",
+		handlerWrapper(staticNoCompressHandler, globalData)))
 	router.GET("/feed", handlerWrapper(atomHandler, globalData))
 
 	return router, listener, closer
