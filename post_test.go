@@ -95,7 +95,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 	filename := f.Name()
 	f.Close()
 
-	defer os.Remove("filename")
+	defer os.Remove(filename)
 
 	postWithContent, err := NewPost(filename, true)
 	if validPost && err != nil {
