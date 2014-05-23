@@ -183,7 +183,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 
 func TestNewPost(t *testing.T) {
 	titles := []string{"Valid Title", " Extra spaces ", "", "MISSING"}
-	dates := []string{"10/12/14 4:15PM MST", "6/4/12 3:57AM CDT  ",
+	dates := []string{"10/12/14 4:15PM -0700", "6/4/12 3:57AM -0500  ",
 		"", "MISSING"}
 	tags := []string{"onetag", "tag1,tag 2", "a long tag", "tag 1, tag2, tag 3", "", "MISSING"}
 	contents := []string{testContent, "", "MISSING"}
@@ -228,7 +228,7 @@ func createTestPosts(t *testing.T) {
 	// Can't call time.Parse in a static initializer, so we make this here.
 	testPosts = make([]*Post, 3)
 
-	postTime, err := time.Parse(PostTimeFormat, "1/2/14 4:15PM MST")
+	postTime, err := time.Parse(PostTimeFormat, "1/2/14 4:15PM -0700")
 	if err != nil {
 		t.Fatal("Invalid time in createTestPosts #0")
 	}
@@ -238,7 +238,7 @@ func createTestPosts(t *testing.T) {
 		[]string{"tag1", "tag2"},
 		[]byte("content")}
 
-	postTime, err = time.Parse(PostTimeFormat, "1/3/14 4:15PM MST")
+	postTime, err = time.Parse(PostTimeFormat, "1/3/14 4:15PM -0700")
 	if err != nil {
 		t.Fatal("Invalid time in createTestPosts #0")
 	}
@@ -248,7 +248,7 @@ func createTestPosts(t *testing.T) {
 		[]string{"tag1"},
 		[]byte("content")}
 
-	postTime, err = time.Parse(PostTimeFormat, "1/2/12 4:15PM MST")
+	postTime, err = time.Parse(PostTimeFormat, "1/2/12 4:15PM -0700")
 	if err != nil {
 		t.Fatal("Invalid time in createTestPosts #0")
 	}
@@ -275,7 +275,7 @@ func writePost(t *testing.T, postPath string, post *Post) {
 	defer f.Close()
 
 	f.WriteString(post.Title + "\n")
-	postTime := post.Timestamp.Format("1/2/06 3:04PM MST")
+	postTime := post.Timestamp.Format("1/2/06 3:04PM -0700")
 	f.WriteString(postTime + "\n")
 	f.WriteString(strings.Join(post.Tags, ",") + "\n\n")
 	f.Write(post.Content)
