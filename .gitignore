@@ -28,3 +28,7 @@ Godeps/_workspace
 cache
 simpleblog.log
 simpleblog
+
+simpleblog*INFO*
+simpleblog*WARNING*
+simpleblog*ERROR*
