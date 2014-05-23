@@ -123,6 +123,9 @@ func (p *Post) HTMLContent(atom bool) template.HTML {
 	}
 
 	domain := "http://" + config.Domain
+	if domain[len(domain)-1] == '/' {
+		domain = domain[0 : len(domain)-1]
+	}
 	renderer := blackfriday.HtmlRenderer(htmlFlags, "", "", domain)
 
 	// set up the parser
