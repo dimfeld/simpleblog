@@ -63,7 +63,7 @@ func AtomFeedRef() template.HTML {
 }
 
 func AtomPostRef(post *Post) template.HTML {
-	return template.HTML(fmt.Sprintf("http://%s/%s",
+	return template.HTML(fmt.Sprintf("http://%s%s",
 		config.Domain,
 		HrefFromPostPath(post.SourcePath),
 	))
