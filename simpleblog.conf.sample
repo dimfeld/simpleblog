@@ -11,5 +11,6 @@ LogDir = "logs"
 
 Domain = "localhost"
 Port = 8080
-
-DebugMode = false
+# To bind to port 80, start as root and use the below to switch to
+# a non-privileged user.
+# RunAs = "bloguser"
