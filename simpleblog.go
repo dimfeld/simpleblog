@@ -10,11 +10,15 @@ import (
 	"github.com/dimfeld/httptreemux"
 	"html/template"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -69,6 +73,8 @@ type Config struct {
 	Domain string
 	Port   int
 
+	RunAs string
+
 	LargeMemCacheLimit       int
 	SmallMemCacheLimit       int
 	LargeMemCacheObjectLimit int
@@ -110,7 +116,37 @@ func isDirectory(dirPath string) bool {
 	return true
 }
 
-func setup() (router *httptreemux.TreeMux, cleanup func()) {
+func runAs(username string) error {
+	u, err := user.Lookup(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return fmt.Errorf("Invalid UID for user %s", username)
+	}
+
+	gid, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return fmt.Errorf("Invalid GID for user %s", username)
+	}
+
+	// Set group first, since we lose permissions for it after setuid.
+	err = syscall.Setgid(gid)
+	if err != nil {
+		return fmt.Errorf("setgid failed: %s", err)
+	}
+
+	err = syscall.Setuid(uid)
+	if err != nil {
+		return fmt.Errorf("setuid failed: %s", err)
+	}
+
+	return nil
+}
+
+func setup() (router *httptreemux.TreeMux, listener net.Listener, cleanup func()) {
 	flag.Parse()
 	config = &Config{
 		Port: 80,
@@ -154,6 +190,22 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 			config.LogDir = "."
 		}
 		flag.Set("log_dir", config.LogDir)
+	}
+
+	listener, err = net.Listen("tcp", ":"+strconv.Itoa(config.Port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not listen on port %d: %s\n", config.Port, err)
+		os.Exit(1)
+	}
+
+	// Downgrade privileges, if configured, so we're not running as root.
+	if config.RunAs != "" {
+		err = runAs(config.RunAs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not switch to user %s: %s\n", config.RunAs, err)
+			os.Exit(1)
+		}
+		glog.ReadUsername()
 	}
 
 	closer := func() {
@@ -244,14 +296,14 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		handlerWrapper(staticCompressHandler, globalData)))
 	router.GET("/feed", handlerWrapper(atomHandler, globalData))
 
-	return router, closer
+	return router, listener, closer
 }
 
 func main() {
-	router, closer := setup()
+	router, listener, closer := setup()
 
 	catchSIGINT(closer, true)
 	defer closer()
 
-	glog.Infoln(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router))
+	glog.Infoln(http.Serve(listener, router))
 }
