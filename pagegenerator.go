@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type PageGenerator func(*GlobalData, map[string]string) (PostList, error)
+type PageGenerator func(*GlobalData, map[string]string) (posts PostList, title string, err error)
 
 type PageSpec struct {
 	globalData     *GlobalData
@@ -30,12 +30,13 @@ type ArchiveSpecList []ArchiveSpec
 
 type TemplateData struct {
 	// Set Posts to make a list of posts. A custom page should set Page.
-	Posts      []*Post
-	Page       *Post
-	Tags       TagPopularity
-	Archives   ArchiveSpecList
-	Domain     string
-	globalData *GlobalData
+	Posts       []*Post
+	Page        *Post
+	WindowTitle string
+	Tags        TagPopularity
+	Archives    ArchiveSpecList
+	Domain      string
+	globalData  *GlobalData
 }
 
 func HrefFromPostPath(p string) template.HTML {
@@ -104,7 +105,7 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 		ps.globalData.Unlock()
 	}
 
-	posts, err := ps.generator(ps.globalData, ps.params)
+	posts, title, err := ps.generator(ps.globalData, ps.params)
 	if err != nil {
 		return gocache.Object{}, err
 	}
@@ -116,8 +117,9 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 	}
 
 	templateData := TemplateData{
-		globalData: ps.globalData,
-		Domain:     config.Domain,
+		globalData:  ps.globalData,
+		Domain:      config.Domain,
+		WindowTitle: title,
 	}
 	if ps.customPage {
 		templateData.Page = posts[0]
@@ -152,34 +154,35 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 	}
 }
 
-func generatePostPage(globalData *GlobalData, params map[string]string) (PostList, error) {
+func generatePostPage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	postPath := path.Join(config.PostsDir, params["year"], params["month"], params["post"]) + ".md"
 	post, err := NewPost(postPath, true)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	postList := PostList{post}
 
-	return postList, nil
+	return postList, post.Title, nil
 }
 
-func generateArchivePage(globalData *GlobalData, params map[string]string) (PostList, error) {
+func generateArchivePage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	archivePath := path.Join(config.PostsDir, params["year"], params["month"])
 	posts, err := LoadPostsFromPath(archivePath, true)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	sort.Sort(posts)
 
-	return posts, nil
+	title := posts[0].Timestamp.Format("Jan 2006")
+	return posts, title, nil
 }
 
-func generateTagsPage(globalData *GlobalData, params map[string]string) (PostList, error) {
+func generateTagsPage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	tags := NewTags(config.TagsPath, config.PostsDir)
 	tagName, err := url.QueryUnescape(params["tag"])
 	postNames, ok := tags.Tag[tagName]
 	if err != nil || !ok || len(postNames) == 0 {
-		return nil, os.ErrNotExist
+		return nil, "", os.ErrNotExist
 	}
 
 	postList := make(PostList, len(postNames))
@@ -194,17 +197,17 @@ func generateTagsPage(globalData *GlobalData, params map[string]string) (PostLis
 	}
 	sort.Sort(sortObj)
 
-	return postList, nil
+	return postList, strings.Title(tagName), nil
 }
 
-func generateIndexPage(globalData *GlobalData, params map[string]string) (PostList, error) {
+func generateIndexPage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	postList := make(PostList, 0, config.IndexPosts)
 
 	for _, current := range globalData.archive {
 		postPath := PostPath(config.PostsDir, current.Year(), current.Month())
 		monthPosts, err := LoadPostsFromPath(postPath, true)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
 		if glog.V(1) {
@@ -225,17 +228,18 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 		postList = postList[0:config.IndexPosts]
 	}
 
-	return postList, nil
+	// Return a blank title, which means to use the default.
+	return postList, "", nil
 }
 
-func generateCustomPage(globalData *GlobalData, params map[string]string) (PostList, error) {
+func generateCustomPage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	pagePath := path.Join(config.PostsDir, "page", params["page"]) + ".md"
 	post, err := NewPost(pagePath, true)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return PostList{post}, nil
+	return PostList{post}, post.Title, nil
 }
 
 func (l ArchiveSpecList) Less(i, j int) bool {
