@@ -183,15 +183,6 @@ func setup() (router *httptreemux.TreeMux, listener net.Listener, cleanup func()
 		os.Exit(1)
 	}
 
-	// Use config.LogDir if not given on the command line.
-	dir := flag.CommandLine.Lookup("log_dir")
-	if dir != nil && dir.Value.String() == "" {
-		if config.LogDir == "" {
-			config.LogDir = "."
-		}
-		flag.Set("log_dir", config.LogDir)
-	}
-
 	listener, err = net.Listen("tcp", ":"+strconv.Itoa(config.Port))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not listen on port %d: %s\n", config.Port, err)
@@ -206,6 +197,22 @@ func setup() (router *httptreemux.TreeMux, listener net.Listener, cleanup func()
 			os.Exit(1)
 		}
 		glog.ReadUsername()
+	}
+
+	// Use config.LogDir if not given on the command line.
+	dir := flag.CommandLine.Lookup("log_dir")
+	if dir != nil && dir.Value.String() == "" {
+		if config.LogDir == "" {
+			config.LogDir = "."
+		}
+		flag.Set("log_dir", config.LogDir)
+		if !isDirectory(config.LogDir) {
+			err = os.MkdirAll(config.LogDir, 0755)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create log directory: %s\n", err)
+				fmt.Fprintf(os.Stderr, "Logs will go to $TMPDIR\n", err)
+			}
+		}
 	}
 
 	closer := func() {
