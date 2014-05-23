@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dimfeld/blackfriday"
+	"github.com/dimfeld/glog"
 	"html/template"
 	"os"
 	"path"
@@ -93,7 +94,7 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 
 	err = p.readHeader(reader)
 	if err != nil {
-		logger.Printf("Error reading post %s: %s", filePath, err.Error())
+		glog.Errorf("Error reading post %s: %s", filePath, err.Error())
 		return
 	}
 
@@ -142,7 +143,9 @@ func (p *Post) HTMLContent(atom bool) template.HTML {
 func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 	var outerErr error = nil
 	postList := make(PostList, 0, 15)
-	debug("LoadPostsFromPath: Loading from", postPath)
+	if glog.V(1) {
+		glog.Infoln("LoadPostsFromPath: Loading from", postPath)
+	}
 	err := filepath.Walk(postPath,
 		func(filePath string, info os.FileInfo, err error) error {
 			if info == nil {
@@ -154,12 +157,14 @@ func LoadPostsFromPath(postPath string, readContent bool) (PostList, error) {
 				// Skip directories, files starting with dot, and non-MD files.
 				return nil
 			}
-			debug("LoadPostsFromPath: Loading", filePath)
+			if glog.V(1) {
+				glog.Infoln("LoadPostsFromPath: Loading", filePath)
+			}
 			newPost, err := NewPost(filePath, readContent)
 			if err == nil {
 				postList = append(postList, newPost)
 			} else {
-				logger.Printf("Failed parsing post at %s: %s", filePath, err)
+				glog.Errorf("Failed parsing post at %s: %s", filePath, err)
 				if outerErr == nil {
 					// Pass the error outward.
 					outerErr = err
@@ -188,7 +193,7 @@ func NewArchiveSpecList(postBase string) (ArchiveSpecList, error) {
 	// Read out the list of year directories.
 	yearDirs, err := postDir.Readdir(0)
 	if err != nil {
-		logger.Println("Nothing in posts directory")
+		glog.Warningln("Nothing in posts directory")
 		return nil, err
 	}
 
@@ -210,13 +215,13 @@ func NewArchiveSpecList(postBase string) (ArchiveSpecList, error) {
 		yearDir, err := os.Open(yearDirPath)
 		if err != nil {
 			// Probably the directory was deleted. Log and move on.
-			logger.Println("NewArchiveSpecList: Failed to open", yearDirPath)
+			glog.Errorln("NewArchiveSpecList: Failed to open", yearDirPath)
 			continue
 		}
 
 		monthDirs, err := yearDir.Readdir(0)
 		if err != nil {
-			logger.Println("NewArchiveSpecList: Failed to read files from", yearDirPath)
+			glog.Errorln("NewArchiveSpecList: Failed to read files from", yearDirPath)
 		}
 
 		for _, monthDirSpec := range monthDirs {

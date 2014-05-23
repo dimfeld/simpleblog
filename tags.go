@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/dimfeld/glog"
 	"io/ioutil"
 	"sort"
 )
@@ -30,7 +31,7 @@ func NewTags(tagsFile string, postPath string) *Tags {
 	if err != nil {
 		err = tags.Generate(postPath)
 		if err != nil {
-			logger.Println("NewTags:", err)
+			glog.Errorln("NewTags:", err)
 			return tags
 		}
 		tags.Save()
@@ -78,7 +79,9 @@ func (tags *Tags) Generate(postPath string) error {
 	// Walk through postPath, finding all posts.
 	// On each file that successfully parses, add it to the map.
 
-	debug("Generating tags file")
+	if glog.V(1) {
+		glog.Infoln("Generating tags file")
+	}
 
 	err := tags.readPosts(postPath)
 	if err != nil {

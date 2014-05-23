@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/dimfeld/glog"
 	"github.com/dimfeld/gocache"
 	"html/template"
 	"net/url"
@@ -109,7 +110,7 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 	}
 
 	if len(posts) == 0 {
-		logger.Println("Empty post list for", key)
+		glog.Warningln("Empty post list for", key)
 		// No error, but an empty post list means that no matching file was found.
 		return gocache.Object{}, os.ErrNotExist
 	}
@@ -128,7 +129,9 @@ func (ps PageSpec) Fill(cacheObj gocache.Cache, key string) (gocache.Object, err
 	tags := NewTags(config.TagsPath, config.PostsDir)
 	templateData.Tags = tags.TagsByPopularity()
 
-	debugf("Fill: Got ArchiveList of length %d", len(ps.globalData.archive))
+	if glog.V(2) {
+		glog.Infof("Fill: Got ArchiveList of length %d", len(ps.globalData.archive))
+	}
 
 	buf := &bytes.Buffer{}
 	ps.globalData.RLock()
@@ -204,7 +207,9 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 			return nil, err
 		}
 
-		debugf("generateIndexPage: Loaded %d posts from %s", len(monthPosts), postPath)
+		if glog.V(1) {
+			glog.Infof("generateIndexPage: Loaded %d posts from %s", len(monthPosts), postPath)
+		}
 		postList = append(postList, monthPosts...)
 
 		// We have enough posts.

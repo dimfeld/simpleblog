@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/dimfeld/glog"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"sort"
@@ -28,12 +28,9 @@ var testHTML []string = []string{
 	"<p>Charles Dickens Charles Dickens</p>",
 }
 
-var writeCapturer *WriteCapturer
-
 func init() {
-	writeCapturer = &WriteCapturer{}
-	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
 	config = &Config{}
+	glog.SetStderrThreshold("FATAL")
 }
 
 func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine bool,
@@ -298,22 +295,6 @@ func createPostTree(t *testing.T) (dirPath string) {
 	return dirPath
 }
 
-type WriteCapturer struct {
-	data []string
-}
-
-func (w *WriteCapturer) Write(data []byte) (n int, err error) {
-	if w.data == nil {
-		w.Clear()
-	}
-	w.data = append(w.data, string(data))
-	return len(data), nil
-}
-
-func (w *WriteCapturer) Clear() {
-	w.data = make([]string, 0)
-}
-
 func TestLoadPostsFromPath(t *testing.T) {
 	dir := createPostTree(t)
 	defer os.RemoveAll(dir)
@@ -347,7 +328,6 @@ func TestLoadPostsFromPath(t *testing.T) {
 	checkPostList(postList, expectedSorted)
 
 	t.Log("Test with a non-.md post")
-	writeCapturer.Clear()
 	nonMdPost := &Post{"2012/02/other-post.txt",
 		"TestPost4",
 		time.Now(),
@@ -362,7 +342,6 @@ func TestLoadPostsFromPath(t *testing.T) {
 	checkPostList(postList, expectedSorted)
 
 	t.Log("Testing with 3 valid posts and 1 invalid post")
-	writeCapturer.Clear()
 	ioutil.WriteFile(path.Join(dir, "2012/02/invalidpost.md"), []byte("Invalid post"), 0666)
 	postList, err = LoadPostsFromPath(dir, true)
 	if err == nil {
@@ -373,9 +352,6 @@ func TestLoadPostsFromPath(t *testing.T) {
 	}
 	sort.Sort(postList)
 	checkPostList(postList, expectedSorted)
-	if len(writeCapturer.data) != 2 {
-		t.Errorf("Expected 2 log messages, saw %d: %v", len(writeCapturer.data), writeCapturer.data)
-	}
 
 	t.Log("Testing load from invalid path")
 	_, err = LoadPostsFromPath("/jklsdfjklfds hjlksdfj", true)
@@ -399,9 +375,6 @@ func TestArchiveSpecList(t *testing.T) {
 			}
 		}
 	}
-
-	writeCapturer := &WriteCapturer{}
-	logger = log.New(writeCapturer, "testlog", log.LstdFlags)
 
 	dir := createPostTree(t)
 	defer os.RemoveAll(dir)

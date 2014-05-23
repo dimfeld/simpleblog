@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"github.com/dimfeld/glog"
 	"github.com/dimfeld/gocache"
 	"net/http"
 	"os"
@@ -20,11 +21,11 @@ func error500(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
-	logger.Println(err)
 	if os.IsNotExist(err) {
+		glog.Warningln(r.URL.Path, ":", err)
 		error404(w, r)
 	} else {
-		logger.Println(err)
+		glog.Errorln(r.URL.Path, ":", err)
 		error500(w, r)
 	}
 }
@@ -168,7 +169,9 @@ func staticCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 	filePath := urlParams["file"]
 	filePath, compression := determineCompression(w, r, filePath)
 
-	debug("Getting path", filePath)
+	if glog.V(1) {
+		glog.Infoln("Getting path", filePath)
+	}
 	object, err := globalData.cache.Get(filePath,
 		DirectCacheFiller{globalData, true})
 	if err != nil {
@@ -221,17 +224,19 @@ func sendData(w http.ResponseWriter, r *http.Request, name string,
 		w.Header().Set("Content-Encoding", "gzip")
 	}
 
-	debugf("Sending data for %s%s [%d]",
-		name,
-		func() string {
-			if compression {
-				return ".gz"
-			} else {
-				return ""
-			}
-		}(),
-		len(object.Data),
-	)
+	if glog.V(1) {
+		glog.Infoln("Sending data for %s%s [%d]",
+			name,
+			func() string {
+				if compression {
+					return ".gz"
+				} else {
+					return ""
+				}
+			}(),
+			len(object.Data),
+		)
+	}
 
 	reader := bytes.NewReader(object.Data)
 	http.ServeContent(w, r, name, object.ModTime, reader)
@@ -269,8 +274,10 @@ func (d DirectCacheFiller) Fill(cacheObj gocache.Cache, pathStr string) (gocache
 
 	if d.canCompress {
 		uncompressedObj, compressedObj, err := gocache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
-		debugf("%s: compressed %d, uncompressed %d",
-			pathStr, len(compressedObj.Data), len(uncompressedObj.Data))
+		if glog.V(2) {
+			glog.Infoln("%s: compressed %d, uncompressed %d",
+				pathStr, len(compressedObj.Data), len(uncompressedObj.Data))
+		}
 		if compressed {
 			return compressedObj, err
 		} else {

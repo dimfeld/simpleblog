@@ -1,16 +1,15 @@
 package main
 
 import (
-	// "bufio"
-	"bufio"
+	"flag"
 	"fmt"
+	"github.com/dimfeld/glog"
 	"github.com/dimfeld/gocache"
 	"github.com/dimfeld/goconfig"
 	"github.com/dimfeld/httppath"
 	"github.com/dimfeld/httptreemux"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,29 +19,15 @@ import (
 )
 
 var (
-	logger      *log.Logger
-	debugLogger *log.Logger
-	debugMode   bool
-	config      *Config
+	config *Config
 )
 
-func debugf(format string, args ...interface{}) {
-	if debugMode {
-		debugLogger.Printf(format, args...)
-	}
-}
-
-func debug(args ...interface{}) {
-	if debugMode {
-		debugLogger.Println(args...)
-	}
-}
 func catchSIGINT(f func(), quit bool) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for _ = range c {
-			logger.Println("SIGINT received...")
+			glog.Infoln("SIGINT received...")
 			f()
 			if quit {
 				os.Exit(1)
@@ -79,10 +64,7 @@ type Config struct {
 	// File path to store tags.json.
 	TagsPath string
 
-	LogFile   string
-	LogPrefix string
-	// Flush the log every X seconds.
-	LogFlushPeriod int
+	LogDir string
 
 	Domain string
 	Port   int
@@ -91,20 +73,18 @@ type Config struct {
 	SmallMemCacheLimit       int
 	LargeMemCacheObjectLimit int
 	SmallMemCacheObjectLimit int
-
-	DebugMode bool
 }
 
 type simpleBlogHandler func(*GlobalData, http.ResponseWriter, *http.Request, map[string]string)
 
 func handlerWrapper(handler simpleBlogHandler, globalData *GlobalData) httptreemux.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
-		logger.Printf("%s %s", r.Method, r.RequestURI)
+		glog.Infof("%s %s", r.Method, r.RequestURI)
 		startTime := time.Now()
 		handler(globalData, w, r, urlParams)
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
-		logger.Printf("   Handled in %d us", duration/time.Microsecond)
+		glog.Infof("   Handled in %d us", duration/time.Microsecond)
 	}
 }
 
@@ -130,23 +110,10 @@ func isDirectory(dirPath string) bool {
 	return true
 }
 
-func LogFlusher(w *bufio.Writer, period time.Duration, quit chan int) {
-	ticker := time.NewTicker(period)
-	for {
-		select {
-		case <-ticker.C:
-			w.Flush()
-		case <-quit:
-			ticker.Stop()
-			break
-		}
-	}
-}
-
 func setup() (router *httptreemux.TreeMux, cleanup func()) {
+	flag.Parse()
 	config = &Config{
-		LogFlushPeriod: 2,
-		Port:           80,
+		Port: 80,
 		// Large memory cache uses 64 MiB at most, with the largest object being 8 MiB.
 		LargeMemCacheLimit:       64 * 1024 * 1024,
 		LargeMemCacheObjectLimit: 8 * 1024 * 1024,
@@ -155,8 +122,8 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		SmallMemCacheObjectLimit: 16 * 1024,
 	}
 	confFile := os.Getenv("SIMPLEBLOG_CONF")
-	if len(os.Args) > 1 {
-		confFile = os.Args[1]
+	if confFile == "" && flag.NArg() != 0 {
+		confFile = flag.Arg(0)
 	}
 
 	if confFile == "" {
@@ -180,38 +147,21 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 		os.Exit(1)
 	}
 
-	debugMode = config.DebugMode
-
-	logFile, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0640)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not open log file %s\n", config.LogFile)
-		os.Exit(1)
+	// Use config.LogDir if not given on the command line.
+	dir := flag.CommandLine.Lookup("log_dir")
+	if dir != nil && dir.Value.String() == "" {
+		if config.LogDir == "" {
+			config.LogDir = "."
+		}
+		flag.Set("log_dir", config.LogDir)
 	}
-
-	logBuffer := bufio.NewWriter(logFile)
-
-	logFlusherQuit := make(chan int)
-	go LogFlusher(logBuffer,
-		time.Duration(config.LogFlushPeriod)*time.Second,
-		logFlusherQuit)
 
 	closer := func() {
-		logFlusherQuit <- 1
-		logger.Println("Shutting down...")
-		logBuffer.Flush()
-		logFile.Sync()
-		logFile.Close()
+		glog.Infoln("Shutting down...")
+		glog.Flush()
 	}
 
-	var logWriter io.Writer = logBuffer
-	if debugMode {
-		// In debug mode, use unbuffered logging so that they come out right away.
-		logWriter = logFile
-	}
-
-	logger = log.New(logWriter, config.LogPrefix, log.LstdFlags)
-	debugLogger = log.New(logWriter, "DEBUG ", log.LstdFlags)
-	logger.Printf("Starting with config\n%+v\n", config)
+	glog.Infoln("Starting with config\n%+v\n", config)
 
 	if config.Port != 80 {
 		config.Domain = fmt.Sprintf("%s:%d", config.Domain, config.Port)
@@ -219,23 +169,23 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	diskCache, err := gocache.NewDiskCache(config.CacheDir)
 	if err != nil {
-		logger.Fatal("Could not create disk cache in", config.CacheDir)
+		glog.Fatal("Could not create disk cache in", config.CacheDir)
 	}
 
 	if !isDirectory(config.DataDir) {
-		logger.Fatal("Could not find data directory", config.DataDir)
+		glog.Fatal("Could not find data directory", config.DataDir)
 	}
 
 	if !isDirectory(config.PostsDir) {
-		logger.Fatal("Could not find posts directory", config.PostsDir)
+		glog.Fatal("Could not find posts directory", config.PostsDir)
 	}
 
 	if !isDirectory(filepath.Join(config.DataDir, "assets")) {
-		logger.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "assets"))
+		glog.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "assets"))
 	}
 
 	if !isDirectory(filepath.Join(config.DataDir, "images")) {
-		logger.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "images"))
+		glog.Fatal("Could not find assets directory", filepath.Join(config.DataDir, "images"))
 	}
 
 	largeObjectLimit := config.LargeMemCacheObjectLimit
@@ -256,7 +206,7 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	templates, err := createTemplates()
 	if err != nil {
-		logger.Fatal("Error parsing template:", err.Error())
+		glog.Fatal("Error parsing template:", err.Error())
 	}
 
 	os.Remove(config.TagsPath)
@@ -269,7 +219,7 @@ func setup() (router *httptreemux.TreeMux, cleanup func()) {
 
 	archive, err := NewArchiveSpecList(config.PostsDir)
 	if err != nil {
-		logger.Fatal("Could not create archive list: ", err)
+		glog.Fatal("Could not create archive list: ", err)
 	}
 	globalData.archive = archive
 
@@ -303,5 +253,5 @@ func main() {
 	catchSIGINT(closer, true)
 	defer closer()
 
-	logger.Println(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router))
+	glog.Infoln(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), router))
 }
