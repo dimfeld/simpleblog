@@ -1,5 +1,5 @@
 About
-4/01/14 4:15PM MST
+4/01/14 4:15PM -0500
 
 
 ## About me
