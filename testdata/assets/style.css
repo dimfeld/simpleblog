@@ -37,6 +37,7 @@ header {
 
 .list-inline li {
 	display:inline-block;
+	list-style: none;
 }
 
 #sidebar {
