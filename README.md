@@ -24,4 +24,4 @@ The default template and CSS are intentionally minimal, but should function as a
 
 * [blackfriday](https://github.com/russross/blackfriday) for Markdown->HTML conversion.
 * [fsnotify](https://github.com/howeyc/fsnotify) for inotify support.
-* My [modified fork](https://github.com/dimfeld/glog) of [Zenoss's glog fork](https://github.com/dimfeld/glog) for better logging.
+* My [modified fork](https://github.com/dimfeld/glog) of [Zenoss's glog fork](https://github.com/zenoss/glog) for better logging.
