@@ -22,7 +22,8 @@ func error500(w http.ResponseWriter, r *http.Request) {
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	if os.IsNotExist(err) {
-		glog.Warningln(r.URL.Path, ":", err)
+		glog.Warningf("%s from %s, referrer %s: err %s",
+			r.URL.Path, r.RemoteAddr, r.Referer(), err)
 		error404(w, r)
 	} else {
 		glog.Errorln(r.URL.Path, ":", err)
