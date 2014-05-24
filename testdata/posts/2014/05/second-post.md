@@ -4,7 +4,7 @@ second post, some tag
 
 # This is the latest post
 
-Ok...
+Ok...[^1]
 
 ````go
 func readChan(c chan int) bool {
@@ -21,3 +21,5 @@ func readChan(c chan int) bool {
     }
 }
 ````
+
+[^1]: Not ok

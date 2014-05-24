@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/dimfeld/blackfriday"
 	"github.com/dimfeld/glog"
+	"hash/fnv"
 	"html/template"
 	"os"
 	"path"
@@ -113,6 +114,7 @@ func NewPost(filePath string, readContent bool) (p *Post, err error) {
 func (p *Post) HTMLContent(atom bool) template.HTML {
 	htmlFlags := 0
 	htmlFlags |= blackfriday.HTML_USE_XHTML
+	htmlFlags |= blackfriday.HTML_FOOTNOTE_RETURN_LINKS
 
 	if atom {
 		htmlFlags |= blackfriday.HTML_ABSOLUTE_LINKS
@@ -120,13 +122,27 @@ func (p *Post) HTMLContent(atom bool) template.HTML {
 		htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
 		htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
 		htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
+
 	}
 
 	domain := "http://" + config.Domain
 	if domain[len(domain)-1] == '/' {
 		domain = domain[0 : len(domain)-1]
 	}
-	renderer := blackfriday.HtmlRenderer(htmlFlags, "", "", domain)
+
+	// Take the hash of the path, to form a prefix for the footnote links.
+	// This prevents duplicate anchors when multiple posts with footnotes are in a page.
+	hash := fnv.New32a()
+	hash.Write([]byte(p.SourcePath))
+	prefix := strconv.FormatInt(int64(hash.Sum32()), 36)
+
+	parameters := blackfriday.HtmlRendererParameters{
+		AbsolutePrefix:             domain,
+		FootnoteAnchorPrefix:       prefix,
+		FootnoteReturnLinkContents: `&#8617;`,
+	}
+
+	renderer := blackfriday.HtmlRendererWithParameters(htmlFlags, "", "", parameters)
 
 	// set up the parser
 	extensions := 0
@@ -137,6 +153,7 @@ func (p *Post) HTMLContent(atom bool) template.HTML {
 	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
 	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
 	extensions |= blackfriday.EXTENSION_HEADER_IDS
+	extensions |= blackfriday.EXTENSION_FOOTNOTES
 
 	content := blackfriday.Markdown(p.Content, renderer, extensions)
 

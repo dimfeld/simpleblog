@@ -226,7 +226,7 @@ func sendData(w http.ResponseWriter, r *http.Request, name string,
 	}
 
 	if glog.V(1) {
-		glog.Infoln("Sending data for %s%s [%d]",
+		glog.Infof("Sending data for %s%s [%d]\n",
 			name,
 			func() string {
 				if compression {
@@ -276,7 +276,7 @@ func (d DirectCacheFiller) Fill(cacheObj gocache.Cache, pathStr string) (gocache
 	if d.canCompress {
 		uncompressedObj, compressedObj, err := gocache.CompressAndSet(cacheObj, pathStr, data, fstat.ModTime())
 		if glog.V(2) {
-			glog.Infoln("%s: compressed %d, uncompressed %d",
+			glog.Infof("%s: compressed %d, uncompressed %d",
 				pathStr, len(compressedObj.Data), len(uncompressedObj.Data))
 		}
 		if compressed {

@@ -15,8 +15,10 @@ And some text.
 And some text.
 
 ##### Header 5
-And some text.
+And some text.[^1]
 
 ###### Header 6
 
 Yay!
+
+[^1]: Yes, more text...
