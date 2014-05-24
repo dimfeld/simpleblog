@@ -134,7 +134,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 	}
 
 	if string(postWithContent.Content) != content {
-		t.Errorf("Expected content: %s\nSaw content: %s", content)
+		t.Errorf("Expected content: %s\nSaw content: %s", content, string(postWithContent.Content))
 	}
 
 	htmlContent := string(postWithContent.HTMLContent(false))
