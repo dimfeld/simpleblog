@@ -82,6 +82,9 @@ var templateFuncs = template.FuncMap{
 	"AtomFeedRef":      AtomFeedRef,
 	"AtomPostRef":      AtomPostRef,
 	"XMLEncoding":      XMLEncoding,
+	// Open and closing double brace, for when these are needed in the template.
+	"odb": func() template.HTML { return template.HTML("{{") },
+	"cdb": func() template.HTML { return template.HTML("}}") },
 }
 
 func createTemplates() (*template.Template, error) {
