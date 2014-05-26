@@ -73,6 +73,13 @@ type Config struct {
 	Domain string
 	Port   int
 
+	// After starting the listener, switch to running as this user.
+	// In current versions of Go this doesn't work right, since it only switches the
+	// calling thread and not the other threads. This can screw up the disk cache
+	// and leaves a security hole, so RunAs is not recommended. Instead, if you need
+	// to bind to a low-numbered port use this command:
+	// sudo setcap cap_net_bind_service=+ep simpleblog
+	// And then just start it directly as the non-privileged user.
 	RunAs string
 
 	LargeMemCacheLimit       int
