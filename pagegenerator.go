@@ -171,7 +171,7 @@ func generatePostPage(globalData *GlobalData, params map[string]string) (PostLis
 func generateArchivePage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	archivePath := path.Join(config.PostsDir, params["year"], params["month"])
 	posts, err := LoadPostsFromPath(archivePath, true)
-	if err != nil {
+	if err != nil && len(posts) == 0 {
 		return nil, "", err
 	}
 	sort.Sort(posts)
@@ -208,15 +208,14 @@ func generateIndexPage(globalData *GlobalData, params map[string]string) (PostLi
 
 	for _, current := range globalData.archive {
 		postPath := PostPath(config.PostsDir, current.Year(), current.Month())
-		monthPosts, err := LoadPostsFromPath(postPath, true)
-		if err != nil {
-			return nil, "", err
-		}
+		monthPosts, _ := LoadPostsFromPath(postPath, true)
 
 		if glog.V(1) {
 			glog.Infof("generateIndexPage: Loaded %d posts from %s", len(monthPosts), postPath)
 		}
-		postList = append(postList, monthPosts...)
+		if len(monthPosts) != 0 {
+			postList = append(postList, monthPosts...)
+		}
 
 		// We have enough posts.
 		if len(postList) >= config.IndexPosts {

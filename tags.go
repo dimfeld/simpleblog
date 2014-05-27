@@ -100,7 +100,7 @@ func (tags *Tags) Generate(postPath string) error {
 
 func (tags *Tags) readPosts(postPath string) error {
 	postList, err := LoadPostsFromPath(postPath, true)
-	if err != nil {
+	if err != nil && len(postList) == 0 {
 		return err
 	}
 
