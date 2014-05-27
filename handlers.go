@@ -202,9 +202,9 @@ func staticNoCompressHandler(globalData *GlobalData, w http.ResponseWriter,
 }
 
 func setStaticAssetHeaders(w http.ResponseWriter) {
-	w.Header().Set("Expires", time.Now().AddDate(1, 0, 0).String())
-	// One year in seconds
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	w.Header().Set("Expires", time.Now().AddDate(0, 0, 1).String())
+	// One day in seconds
+	w.Header().Set("Cache-Control", "public, max-age=86400")
 }
 
 // sendData returns a file to the user, handling relevant headers in the request and response.
