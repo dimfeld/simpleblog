@@ -183,7 +183,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 
 func TestNewPost(t *testing.T) {
 	titles := []string{"Valid Title", " Extra spaces ", "", "MISSING"}
-	dates := []string{"10/12/14 4:15PM -0700", "6/4/12 3:57AM -0500  ",
+	dates := []string{"10/12/14 04:15PM -0700", "6/4/12 3:57AM -0500  ",
 		"", "MISSING"}
 	tags := []string{"onetag", "tag1,tag 2", "a long tag", "tag 1, tag2, tag 3", "", "MISSING"}
 	contents := []string{testContent, "", "MISSING"}
