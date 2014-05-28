@@ -291,6 +291,7 @@ func writePost(t *testing.T, postPath string, post *Post) {
 	postTime := post.Timestamp.Format("1/2/06 3:04PM -0700")
 	f.WriteString(postTime + "\n")
 	f.WriteString(strings.Join(post.Tags, ",") + "\n\n")
+	f.WriteString(post.Link + "\n")
 	f.Write(post.Content)
 }
 
