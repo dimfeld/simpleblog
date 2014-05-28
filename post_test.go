@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -33,11 +32,11 @@ func init() {
 	glog.SetStderrThreshold("FATAL")
 }
 
-func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine bool,
+func testOnePost(t *testing.T, title, date, tags, link string, includePostHeaderLine int,
 	content string) {
 
-	t.Logf("Testing %s,  %s, \"%s\", %s",
-		title, date, tags, strconv.FormatBool(includePostHeaderLine))
+	t.Logf("Testing %s,  %s, \"%s\", \"%s\", %d",
+		title, date, tags, link, includePostHeaderLine)
 
 	var expectedTime time.Time
 	expectedTags := make(map[string]bool)
@@ -75,13 +74,17 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 				expectedTags[tag] = true
 			}
 		}
-	} else {
-		validPost = false
 	}
 
-	if includePostHeaderLine {
+	if link != "MISSING" {
+		f.WriteString(link + "\n")
+	}
+
+	for i := 0; i < includePostHeaderLine; i++ {
 		f.WriteString("\n")
-	} else {
+	}
+
+	if includePostHeaderLine == 0 {
 		validPost = false
 	}
 
@@ -96,6 +99,10 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 	f.Close()
 
 	defer os.Remove(filename)
+
+	if includePostHeaderLine == 2 {
+		content = "\n" + content
+	}
 
 	postWithContent, err := NewPost(filename, true)
 	if validPost && err != nil {
@@ -139,7 +146,7 @@ func testOnePost(t *testing.T, title, date, tags string, includePostHeaderLine b
 
 	htmlContent := string(postWithContent.HTMLContent(false))
 
-	if len(content) != 0 {
+	if len(content) > 1 {
 		for _, expectedHTML := range testHTML {
 			if !strings.Contains(htmlContent, expectedHTML) {
 				t.Errorf("Expected HTML to contain: %s\nSaw HTML: %s", testHTML, htmlContent)
@@ -185,20 +192,23 @@ func TestNewPost(t *testing.T) {
 	titles := []string{"Valid Title", " Extra spaces ", "", "MISSING"}
 	dates := []string{"10/12/14 04:15PM -0700", "6/4/12 3:57AM -0500  ",
 		"", "MISSING"}
-	tags := []string{"onetag", "tag1,tag 2", "a long tag", "tag 1, tag2, tag 3", "", "MISSING"}
+	tags := []string{"onetag", "tag1,tag 2", "a long tag", "tag 1, tag2, tag 3", "MISSING"}
+	link := []string{"http://www.golang.org", "MISSING"}
 	contents := []string{testContent, "", "MISSING"}
-	includePostHeaderLine := []bool{true, false}
+	includePostHeaderLine := []int{0, 1, 2}
 
 	for _, title := range titles {
 		for _, date := range dates {
 			for _, tag := range tags {
 				for _, include := range includePostHeaderLine {
-					for _, content := range contents {
-						testOnePost(t, title, date, tag, include, content)
-						// if t.Failed() {
-						// 	// Quit early if we fail to ease debugging.
-						// 	t.FailNow()
-						// }
+					for _, linkText := range link {
+						for _, content := range contents {
+							testOnePost(t, title, date, tag, linkText, include, content)
+							if t.Failed() {
+								// Quit early if we fail to ease debugging.
+								t.FailNow()
+							}
+						}
 					}
 				}
 			}
@@ -236,6 +246,7 @@ func createTestPosts(t *testing.T) {
 		"TestPost1",
 		postTime,
 		[]string{"tag1", "tag2"},
+		"http://www.google.com",
 		[]byte("content")}
 
 	postTime, err = time.Parse(PostTimeFormat, "1/3/14 4:15PM -0700")
@@ -246,6 +257,7 @@ func createTestPosts(t *testing.T) {
 		"TestPost2",
 		postTime,
 		[]string{"tag1"},
+		"http://www.github.com",
 		[]byte("content")}
 
 	postTime, err = time.Parse(PostTimeFormat, "1/2/12 4:15PM -0700")
@@ -256,6 +268,7 @@ func createTestPosts(t *testing.T) {
 		"TestPost3",
 		postTime,
 		[]string{"tag2"},
+		"http://www.golang.org",
 		[]byte("content")}
 }
 
@@ -332,6 +345,7 @@ func TestLoadPostsFromPath(t *testing.T) {
 		"TestPost4",
 		time.Now(),
 		[]string{"tag2"},
+		"http://www.anandtech.com",
 		[]byte("content")}
 	writePost(t, dir, nonMdPost)
 	nonMdPost.SourcePath = "2012/02/.somepost.md"

@@ -27,7 +27,16 @@ type Post struct {
 	Title      string
 	Timestamp  time.Time
 	Tags       []string
+	Link       string
 	Content    []byte
+}
+
+func (p *Post) parseTags(line string) {
+	p.Tags = strings.Split(line, ",")
+
+	for i := range p.Tags {
+		p.Tags[i] = strings.Title(strings.TrimSpace(p.Tags[i]))
+	}
 }
 
 func (p *Post) readHeader(reader *bufio.Reader) (err error) {
@@ -47,19 +56,30 @@ func (p *Post) readHeader(reader *bufio.Reader) (err error) {
 		return
 	}
 
-	line, err = reader.ReadString('\n')
-	if err != nil {
-		return
-	}
+	// Read up to 2 optional lines
+	p.Tags = []string{}
+	for i := 0; i < 2; i++ {
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			return
+		}
 
-	line = strings.TrimSpace(line)
-	if line == "" {
-		p.Tags = []string{}
-	} else {
-		p.Tags = strings.Split(line, ",")
-	}
-	for i := range p.Tags {
-		p.Tags[i] = strings.Title(strings.TrimSpace(p.Tags[i]))
+		line = strings.TrimSpace(line)
+		if line == "" {
+			return nil
+		}
+
+		if strings.HasPrefix(line, "http://") {
+			if p.Link != "" {
+				return errors.New("More than one link in header")
+			}
+			p.Link = line
+		} else {
+			if len(p.Tags) != 0 {
+				return errors.New("More than one tags line in header")
+			}
+			p.parseTags(line)
+		}
 	}
 
 	line, err = reader.ReadString('\n')
@@ -78,7 +98,8 @@ func (p *Post) readHeader(reader *bufio.Reader) (err error) {
 // The post format is:
 // Title
 // Date/Time
-// Tags
+// Tags - optional
+// Link - optional
 //
 // Markdown Content
 func NewPost(filePath string, readContent bool) (p *Post, err error) {
