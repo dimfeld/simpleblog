@@ -137,13 +137,10 @@ func (p *Post) HTMLContent(atom bool) template.HTML {
 	htmlFlags |= blackfriday.HTML_USE_XHTML
 	htmlFlags |= blackfriday.HTML_FOOTNOTE_RETURN_LINKS
 
-	if atom {
-		htmlFlags |= blackfriday.HTML_ABSOLUTE_LINKS
-	} else {
+	if !atom {
 		htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
 		htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
 		htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
-
 	}
 
 	domain := "http://" + config.Domain
