@@ -16,8 +16,8 @@
 		<link href="{{AtomPostRef .}}" />
 		<id>{{AtomPostRef .}}</id>
 		<updated>{{AtomTime .Timestamp}}</updated>
-                <content type="xhtml">
-                      {{.HTMLContent true}}
+                <content type="html">
+                      {{html (.HTMLContent true)}}
                 </content>
                 <author>
                       <name>Simple Blogger</name>
