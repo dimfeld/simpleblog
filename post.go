@@ -137,15 +137,16 @@ func (p *Post) HTMLContent(atom bool) template.HTML {
 	htmlFlags |= blackfriday.HTML_USE_XHTML
 	htmlFlags |= blackfriday.HTML_FOOTNOTE_RETURN_LINKS
 
-	if !atom {
+	domain := ""
+	if atom {
+		domain = "http://" + config.Domain
+		if domain[len(domain)-1] == '/' {
+			domain = domain[0 : len(domain)-1]
+		}
+	} else {
 		htmlFlags |= blackfriday.HTML_USE_SMARTYPANTS
 		htmlFlags |= blackfriday.HTML_SMARTYPANTS_FRACTIONS
 		htmlFlags |= blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
-	}
-
-	domain := "http://" + config.Domain
-	if domain[len(domain)-1] == '/' {
-		domain = domain[0 : len(domain)-1]
 	}
 
 	// Take the hash of the path, to form a prefix for the footnote links.
