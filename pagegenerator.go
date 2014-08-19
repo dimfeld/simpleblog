@@ -208,7 +208,17 @@ func generateTagsPage(globalData *GlobalData, params map[string]string) (PostLis
 func generateIndexPage(globalData *GlobalData, params map[string]string) (PostList, string, error) {
 	postList := make(PostList, 0, config.IndexPosts)
 
-	for _, current := range globalData.archive {
+	// Set up the correct scan direction through the archive list, depending on how it's sorted.
+	startArchive := 0
+	endArchive := len(globalData.archive) - 1
+	increment := 1
+	if !config.ArchiveListNewestFirst {
+		startArchive, endArchive = endArchive, startArchive
+		increment = -1
+	}
+
+	for i := startArchive; i != endArchive; i += increment {
+		current := globalData.archive[i]
 		postPath := PostPath(config.PostsDir, current.Year(), current.Month())
 		monthPosts, _ := LoadPostsFromPath(postPath, true)
 
